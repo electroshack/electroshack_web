@@ -63,8 +63,29 @@ function logoUrl() {
   return process.env.EMAIL_LOGO_URL || `${publicSiteUrl()}/email-hero-logo.png`;
 }
 
+/** Extract `addr` from RFC-style `Display Name <addr>` or a plain address string. */
+function bareEmailFromHeader(val) {
+  if (!val || typeof val !== "string") return "";
+  const t = val.trim();
+  const angle = t.match(/<([^>@\s]+@[^>\s]+)>/);
+  if (angle) return angle[1].trim();
+  if (/^\S+@\S+\.\S+$/.test(t)) return t;
+  return "";
+}
+
+/**
+ * Recipient for internal mail (grocery alerts, Reply-To fallback).
+ * Prefer ADMIN_EMAIL on hosts where SMTP_USER is only for auth — or where
+ * `SMTP_FROM` / `EMAIL_FROM` holds the mailbox but LOGIN_USER is omitted.
+ */
 function adminEmail() {
-  return (process.env.ADMIN_EMAIL || process.env.SMTP_USER || process.env.EMAIL_USER || "").trim();
+  return (
+    (process.env.ADMIN_EMAIL || "").trim() ||
+    (process.env.SMTP_USER || "").trim() ||
+    (process.env.EMAIL_USER || "").trim() ||
+    bareEmailFromHeader(process.env.SMTP_FROM || "") ||
+    bareEmailFromHeader(process.env.EMAIL_FROM || "")
+  );
 }
 
 function storeName() {

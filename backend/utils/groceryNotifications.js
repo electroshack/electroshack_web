@@ -54,7 +54,11 @@ async function notifyGroceryListMatches(inventoryDoc, previousLean) {
         item: g.toObject(),
         actor: "auto-match",
         matchedInventory: { name: inventoryDoc.name, itemNumber: inventoryDoc.itemNumber },
-      }).catch((e) => console.error("[grocery] admin match notify:", e?.message || e));
+      })
+        .then((r) => {
+          if (!r?.sent) console.warn("[grocery] admin match notify skipped:", r?.reason || r);
+        })
+        .catch((e) => console.error("[grocery] admin match notify failed:", e?.message || e));
     }
   }
 

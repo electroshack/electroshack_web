@@ -5,9 +5,13 @@ const { sendAdminGroceryNotification } = require("../lib/email");
 const router = express.Router();
 
 function notifyAsync(payload) {
-  void sendAdminGroceryNotification(payload).catch((e) =>
-    console.error("[grocery] admin notify failed:", e?.message || e)
-  );
+  void sendAdminGroceryNotification(payload)
+    .then((r) => {
+      if (!r?.sent) {
+        console.warn("[grocery] admin notify skipped:", r?.reason || r);
+      }
+    })
+    .catch((e) => console.error("[grocery] admin notify failed:", e?.message || e));
 }
 
 router.post("/", auth, async (req, res) => {
