@@ -72,43 +72,60 @@ function storeName() {
 }
 
 /**
- * Wraps inner HTML in the brand chrome (centered hero logo + headline, footer).
- * Uses inline styles only — most mail clients strip <style> blocks.
- * Logo + title share one table row so there is no large blank strip between them
- * and the white body (a common complaint with stacked header rows).
+ * Wraps inner HTML in the brand chrome (hero logo band + dark-on-light title + body).
+ *
+ * Gmail / Apple Mail in **light** theme often strip `linear-gradient` backgrounds;
+ * white headline text then sits on white and disappears. Fix: (1) logo-only row
+ * uses solid `bgcolor` + `background-color` (no gradient on text-bearing cells).
+ * (2) Title + subtitle live on explicit white with `#0f172a` / `#475569` text.
+ * (3) `color-scheme` hints reduce unwanted auto-inversion while staying readable
+ *    in both app light and dark themes.
  */
 function brandedShell({ headlineHtml, headlineSubHtml = "", innerHtml, ctaHtml = "", footerNote = "" }) {
   const shop = storeName();
   const site = publicSiteUrl();
   const logo = logoUrl();
   return `<!DOCTYPE html>
-<html>
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1" /><title>${escapeHtml(shop)}</title></head>
-<body style="margin:0;padding:0;background:#f1f5f9;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;color:#0f172a;">
-  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f1f5f9;padding:20px 12px;">
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="color-scheme" content="light dark" />
+  <meta name="supported-color-schemes" content="light dark" />
+  <title>${escapeHtml(shop)}</title>
+  <!--[if mso]><noscript><xml><o:OfficeDocumentSettings><o:PixelsPerInch>96</o:PixelsPerInch></o:OfficeDocumentSettings></xml></noscript><![endif]-->
+</head>
+<body style="margin:0;padding:0;background-color:#e2e8f0;color:#0f172a;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" bgcolor="#e2e8f0" style="background-color:#e2e8f0;padding:20px 12px;">
     <tr>
       <td align="center">
-        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:560px;background:#ffffff;border-radius:18px;overflow:hidden;border:1px solid #e2e8f0;box-shadow:0 8px 28px rgba(15,23,42,0.06);">
-          <!-- Centered hero logo + headline (single block, no spacer row) -->
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" bgcolor="#ffffff" style="max-width:560px;background-color:#ffffff;border-radius:18px;overflow:hidden;border:1px solid #cbd5e1;">
+          <!-- Logo strip: solid dark only (gradient breaks in some light-mode clients) -->
           <tr>
-            <td style="background:linear-gradient(180deg,#0f172a 0%,#0c4a6e 55%,#0369a1 100%);padding:14px 24px 16px;text-align:center;">
+            <td align="center" bgcolor="#0f172a" style="background-color:#0f172a;padding:14px 24px 14px;text-align:center;">
               <img src="${escapeHtml(logo)}" alt="${escapeHtml(shop)}" width="280" style="display:block;margin:0 auto;max-width:92%;width:280px;height:auto;border:0;outline:none;text-decoration:none;" />
-              <h1 style="margin:10px 0 0;padding:0;font-size:20px;font-weight:800;letter-spacing:-0.02em;line-height:1.25;color:#ffffff;">${headlineHtml}</h1>
-              ${headlineSubHtml ? `<p style="margin:6px 0 0;padding:0;font-size:14px;line-height:1.45;color:rgba(255,255,255,0.92);">${headlineSubHtml}</p>` : ""}
+            </td>
+          </tr>
+          <!-- Title on true white + dark text (always readable in light & dark app themes) -->
+          <tr>
+            <td align="center" bgcolor="#ffffff" style="background-color:#ffffff;padding:16px 24px 4px;text-align:center;border-bottom:1px solid #e2e8f0;">
+              <h1 style="margin:0;padding:0;font-size:20px;font-weight:800;letter-spacing:-0.02em;line-height:1.3;color:#0f172a;">${headlineHtml}</h1>
+              ${headlineSubHtml ? `<p style="margin:8px 0 0;padding:0;font-size:14px;line-height:1.45;color:#475569;">${headlineSubHtml}</p>` : ""}
             </td>
           </tr>
           <!-- Body -->
           <tr>
-            <td style="padding:16px 24px 10px;">${innerHtml}</td>
+            <td bgcolor="#ffffff" style="background-color:#ffffff;color:#334155;padding:12px 24px 10px;">${innerHtml}</td>
           </tr>
-          ${ctaHtml ? `<tr><td align="center" style="padding:8px 28px 24px;">${ctaHtml}</td></tr>` : ""}
+          ${ctaHtml ? `<tr><td align="center" bgcolor="#ffffff" style="background-color:#ffffff;padding:8px 24px 20px;">${ctaHtml}</td></tr>` : ""}
           <!-- Footer -->
           <tr>
-            <td style="padding:18px 28px 22px;border-top:1px solid #f1f5f9;background:#f8fafc;text-align:center;font-size:12px;color:#64748b;line-height:1.6;">
-              ${footerNote ? `<p style="margin:0 0 8px;color:#475569;">${footerNote}</p>` : ""}
+            <td bgcolor="#f1f5f9" style="padding:18px 24px 22px;border-top:1px solid #e2e8f0;background-color:#f1f5f9;text-align:center;font-size:12px;color:#475569;line-height:1.6;">
+              ${footerNote ? `<p style="margin:0 0 8px;color:#334155;">${footerNote}</p>` : ""}
               <p style="margin:0 0 4px;font-weight:600;color:#0f172a;">${escapeHtml(shop)}</p>
-              <p style="margin:0;">9600 Islington Ave, Woodbridge, ON L4H 2T1 &middot; <a href="tel:9058931613" style="color:#0284c7;text-decoration:none;">(905) 893-1613</a></p>
-              <p style="margin:8px 0 0;"><a href="${escapeHtml(site)}" style="color:#0284c7;text-decoration:none;">${escapeHtml(site.replace(/^https?:\/\//, ""))}</a></p>
+              <p style="margin:0;color:#475569;">9600 Islington Ave, Woodbridge, ON L4H 2T1 &middot; <a href="tel:9058931613" style="color:#0369a1;text-decoration:none;">(905) 893-1613</a></p>
+              <p style="margin:8px 0 0;"><a href="${escapeHtml(site)}" style="color:#0369a1;text-decoration:none;">${escapeHtml(site.replace(/^https?:\/\//, ""))}</a></p>
             </td>
           </tr>
         </table>
