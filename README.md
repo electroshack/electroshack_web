@@ -18,19 +18,19 @@ A modern web-based storefront and point-of-sale (POS) system for Electroshack, r
 
 ## Screenshots
 
-Public storefront, admin dashboard, customer ticket lookup and the digital invoice form (full set under [`docs/screenshots/`](docs/screenshots/)).
+Public storefront, admin dashboard with database capacity widget, customer quote lookup, the new quote form (no taxes — quote only), and the inventory form with quick-add presets and the standardized image uploader (full set under [`docs/screenshots/`](docs/screenshots/)).
 
-| Public homepage | Admin dashboard |
+| Public homepage | Admin dashboard (with DB-capacity warning widget) |
 | --- | --- |
-| ![Home](docs/screenshots/01_home_desktop.png) | ![Dashboard](docs/screenshots/02_admin_dashboard.png) |
+| ![Home](docs/screenshots/01_home_desktop.png) | ![Dashboard](docs/screenshots/09_admin_dashboard.png) |
 
-| New invoice (POS) | Add inventory item |
+| New quote (no taxes) | Add inventory item (quick-add + photo upload) |
 | --- | --- |
-| ![Invoice form](docs/screenshots/03_new_receipt_form.png) | ![Inventory form](docs/screenshots/04_new_inventory_form.png) |
+| ![Quote form](docs/screenshots/10_admin_new_quote.png) | ![Inventory form](docs/screenshots/11_admin_new_inventory.png) |
 
-| Customer ticket lookup | Public storefront |
+| Customer quote lookup | Public storefront |
 | --- | --- |
-| ![Ticket lookup](docs/screenshots/05_customer_ticket_lookup.png) | ![Shop](docs/screenshots/06_shop_storefront.png) |
+| ![Quote lookup](docs/screenshots/05_customer_ticket_lookup.png) | ![Shop](docs/screenshots/03_shop_desktop.png) |
 
 ## One-click free deployment
 
@@ -50,27 +50,29 @@ Public storefront, admin dashboard, customer ticket lookup and the digital invoi
 - **Track Repair** â€” Customers search by receipt number to see status, updates, and send messages
 
 ### Admin Dashboard (POS)
-- **Dashboard** â€” Stats overview, quick actions, recent receipts
-- **Receipt/Invoice Management** â€” Full CRUD for digital receipts replacing handwritten invoices
-  - Sequential 6-7 digit receipt numbers (ES-YYYY-######)
+- **Dashboard** â€” Stats overview, quick actions, recent quotes, and a live database-storage widget (turns yellow at 70% / red at 90% of the Atlas free-tier 512 MiB cap; configurable via `MONGODB_CAP_BYTES`).
+- **Quote management** â€” Full CRUD for digital quotes replacing handwritten invoices.
+  - Sequential 6-7 digit quote numbers (ES-YYYY-######)
   - Customer info (name, phone, email, address)
   - Service categories (repair, accessory, phone/laptop/PC purchase, etc.)
   - Status tracking with customer-visible updates
   - Two-way messaging between staff and customers
-  - Ontario GST 5% + RST 8% tax calculation
-  - Legacy receipt mode for digitizing old paper invoices
-  - Email confirmation on new receipt (when SMTP configured)
+  - **Quote-only pricing** â€” line items roll up to a single editable "Quote total". No taxes are calculated, displayed, emailed, or stored anywhere.
+  - **Email-the-customer toggles** â€” staff can opt into emailing the customer when saving a quote update or posting a general status update; templates carry the Electroshack logo, address, and a "Track your repair" CTA.
+  - Legacy quote mode for digitizing old paper invoices
 - **Inventory Management** â€” Track all items with:
   - Auto-assigned item numbers, barcode/IMEI/serial scanning
   - Purchase info (who bought from, date, cost)
   - Sale info (who sold to, date, selling price)
   - Condition tracking (new/refurbished/used/for-parts)
+  - **Quick-add palette** for common stock (USB-C charger, Lightning cable, tempered glass, Bluetooth earbuds, etc.) â€” one click pre-fills name/category/price.
+  - **Standardized photo uploader** â€” drop in any photo and it's auto-resized to 800Ã—800 on a white background and stored as JPEG so storefront cards line up.
   - Toggle items visible on public storefront
   - External barcode/IMEI hint lookup (TAC database + UPC API)
-- **Grocery List** â€” Staff wish list with match notifications when inventory arrives
-- **Metrics** â€” Date-range financial summary + Excel export
-- **Messages** â€” View and manage contact form submissions
-- **User Management** â€” Superadmin can create/delete admin users
+- **Grocery List** â€” Staff wish list with match notifications when inventory arrives. Every add/update/remove (and every auto-match) triggers an email to `ADMIN_EMAIL` so a manager always knows what's on the list.
+- **Metrics** â€” Date-range financial summary + Excel export.
+- **Messages** â€” View and manage contact form submissions.
+- **User Management** â€” Superadmin can create/delete admin users.
 
 ## Tech Stack
 
@@ -170,6 +172,8 @@ The CRA dev proxy forwards `/api` requests to the backend automatically.
    MONGODB_URI=mongodb+srv://username:password@cluster0.xxxxx.mongodb.net/electroshackDB?retryWrites=true&w=majority
    ```
 5. Start the server â€” the admin user is auto-created on first boot.
+
+> **Free-tier capacity:** MongoDB Atlas M0 ships with a 512 MiB cap. The admin dashboard exposes a live storage widget (`/api/admin/storage-stats`) that turns yellow above 70% and red above 90% so you get plenty of warning before writes start failing. To monitor a different cap (e.g. after upgrading to M2 / M5), set `MONGODB_CAP_BYTES` on Render. Render free instances sleep after ~15 minutes of inactivity (a quick wake-up on the next request is normal) and bandwidth is metered monthly â€” their dashboard surfaces both.
 
 ### Option C: No MongoDB (Development only)
 
