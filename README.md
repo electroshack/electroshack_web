@@ -2,6 +2,30 @@
 
 A modern web-based storefront and point-of-sale (POS) system for Electroshack, replacing the handwritten receipt system with a digital workflow.
 
+## Screenshots
+
+Public storefront, admin dashboard, customer ticket lookup and the digital invoice form (full set under [`docs/screenshots/`](docs/screenshots/)).
+
+| Public homepage | Admin dashboard |
+| --- | --- |
+| ![Home](docs/screenshots/01_home_desktop.png) | ![Dashboard](docs/screenshots/02_admin_dashboard.png) |
+
+| New invoice (POS) | Add inventory item |
+| --- | --- |
+| ![Invoice form](docs/screenshots/03_new_receipt_form.png) | ![Inventory form](docs/screenshots/04_new_inventory_form.png) |
+
+| Customer ticket lookup | Public storefront |
+| --- | --- |
+| ![Ticket lookup](docs/screenshots/05_customer_ticket_lookup.png) | ![Shop](docs/screenshots/06_shop_storefront.png) |
+
+## One-click free deployment
+
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/khanayaani/electroshack_web) &nbsp; [![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/khanayaani/electroshack_web&root-directory=client&env=REACT_APP_API_URL&envDescription=URL%20of%20your%20deployed%20backend%2C%20e.g.%20https%3A%2F%2Felectroshack-api.onrender.com%2Fapi)
+
+1. Click **Deploy to Render** → it reads `render.yaml`, asks for `MONGODB_URI`, `PUBLIC_SITE_URL`, `ADMIN_PASSWORD`. Get the URL it assigns (e.g. `https://electroshack-api.onrender.com`).
+2. Click **Deploy with Vercel** → set **Root Directory** to `client`, set env var `REACT_APP_API_URL` to the Render URL + `/api`. Deploy.
+3. Point GoDaddy DNS at both (steps below).
+
 ## Features
 
 ### Customer-Facing

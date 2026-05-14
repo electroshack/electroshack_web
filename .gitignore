@@ -20,7 +20,7 @@ Thumbs.db
 *.swo
 
 # Test artifacts
-screenshots/
+/screenshots/
 backend/_traceerr.txt
 backend/_traceout.txt
 client/_traceerr.txt
