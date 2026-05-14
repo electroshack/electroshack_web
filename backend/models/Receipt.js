@@ -86,10 +86,11 @@ const ReceiptSchema = new mongoose.Schema(
 
     items: [LineItemSchema],
 
+    /**
+     * Quoted total — sum of line item prices. We no longer charge or store taxes;
+     * `priceEstimate` is the customer-facing quote shown on screen and in emails.
+     */
     priceEstimate: { type: Number, default: 0 },
-    finalPrice: { type: Number, default: 0 },
-    gst: { type: Number, default: 0 },
-    pst: { type: Number, default: 0 },
 
     status: {
       type: String,

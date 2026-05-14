@@ -1,5 +1,5 @@
 const GroceryItem = require("../models/GroceryItem");
-const { sendStockNotificationEmail } = require("../lib/email");
+const { sendStockNotificationEmail, sendAdminGroceryNotification } = require("../lib/email");
 
 function becameInStock(inv, previous) {
   const nowOk = inv.status === "in-stock" && inv.quantity > 0;
@@ -48,6 +48,13 @@ async function notifyGroceryListMatches(inventoryDoc, previousLean) {
       // eslint-disable-next-line no-await-in-loop
       await g.save();
       notified += 1;
+      // eslint-disable-next-line no-await-in-loop
+      await sendAdminGroceryNotification({
+        action: "matched",
+        item: g.toObject(),
+        actor: "auto-match",
+        matchedInventory: { name: inventoryDoc.name, itemNumber: inventoryDoc.itemNumber },
+      }).catch((e) => console.error("[grocery] admin match notify:", e?.message || e));
     }
   }
 

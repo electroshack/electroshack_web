@@ -169,7 +169,7 @@ export default function AdminLayout({ children, title }) {
         <div ref={asideInnerRef} className="flex flex-col h-full min-h-0 overflow-x-visible overflow-y-visible">
           <div className="flex items-center justify-between p-4 border-b border-dark-800">
             <Link to="/admin">
-              <img src={logo} alt="Electroshack" className="h-8" />
+              <img src={logo} alt="Electroshack" className="h-12 w-auto" />
             </Link>
             <button onClick={() => setSidebarOpen(false)} className="lg:hidden text-gray-400 hover:text-white">
               <X size={20} />

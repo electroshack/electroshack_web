@@ -64,6 +64,7 @@ app.use("/api/inventory", require("./routes/inventory"));
 app.use("/api/contact-forms", require("./routes/contactForms"));
 app.use("/api/grocery-list", require("./routes/groceryList"));
 app.use("/api/metrics", require("./routes/metrics"));
+app.use("/api/admin", require("./routes/admin"));
 
 app.use((err, req, res, next) => {
   console.error(err.stack);

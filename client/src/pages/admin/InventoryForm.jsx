@@ -16,6 +16,8 @@ import {
 } from "lucide-react";
 import toast from "react-hot-toast";
 import AdminLayout from "../../components/AdminLayout";
+import InventoryImageUploader from "../../components/InventoryImageUploader";
+import QuickAddCommonItems from "../../components/QuickAddCommonItems";
 import API from "../../api";
 
 const categories = [
@@ -409,6 +411,31 @@ export default function InventoryForm() {
     }));
   };
 
+  const handleImagesChange = (next) => {
+    setForm((prev) => ({ ...prev, images: Array.isArray(next) ? next : [] }));
+  };
+
+  /** Pre-fill from a "common item" preset without clobbering user input */
+  const applyPreset = (preset) => {
+    setForm((prev) => ({
+      ...prev,
+      name: prev.name?.trim() ? prev.name : preset.name,
+      description: prev.description?.trim() ? prev.description : preset.description,
+      category: preset.category || prev.category,
+      condition: preset.condition || prev.condition,
+      sellingPrice:
+        prev.sellingPrice != null && String(prev.sellingPrice).trim() !== ""
+          ? prev.sellingPrice
+          : preset.sellingPrice
+            ? String(preset.sellingPrice)
+            : prev.sellingPrice,
+      quantity: prev.quantity || preset.quantity || 1,
+      status: prev.status || "in-stock",
+      showOnStorefront: prev.showOnStorefront,
+    }));
+    toast.success(`Pre-filled "${preset.label}" — adjust price & photo, then save.`);
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setSaving(true);
@@ -559,6 +586,8 @@ export default function InventoryForm() {
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-5">
+            {!isEdit && <QuickAddCommonItems onPick={applyPreset} disabled={saving} />}
+
             {/* Category (+ internal # on edit only) */}
             <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
               <div className="flex flex-col sm:flex-row sm:items-end gap-4">
@@ -650,6 +679,11 @@ export default function InventoryForm() {
                   <textarea name="description" value={form.description} onChange={handleChange} rows={2} className={inputCls} />
                 </div>
               </div>
+            </div>
+
+            {/* Photos for storefront */}
+            <div className="rounded-2xl border border-gray-100 bg-white p-5 sm:p-6 shadow-sm">
+              <InventoryImageUploader value={form.images || []} onChange={handleImagesChange} />
             </div>
 
             {/* Pricing row */}

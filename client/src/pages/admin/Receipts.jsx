@@ -47,14 +47,14 @@ export default function Receipts() {
   };
 
   return (
-    <AdminLayout title="Receipts / Invoices">
+    <AdminLayout title="Quotes / Tickets">
       <div className="space-y-4">
         {/* Toolbar */}
         <div className="flex flex-wrap items-center gap-3">
           <form onSubmit={handleSearch} className="flex flex-1 min-w-[200px] max-w-md">
             <input
               type="text"
-              placeholder="Search by name, phone, or receipt #..."
+              placeholder="Search by name, phone, or quote #..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="flex-1 px-3 py-2 bg-white border border-gray-200 rounded-l-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
@@ -85,7 +85,7 @@ export default function Receipts() {
             className="flex items-center gap-2 px-4 py-2 bg-primary-500 text-white text-sm font-medium rounded-lg hover:bg-primary-600 transition-colors ml-auto"
           >
             <Plus size={16} />
-            New Receipt
+            New Quote
           </Link>
         </div>
 
@@ -102,12 +102,12 @@ export default function Receipts() {
               <table className="w-full text-sm">
                 <thead className="bg-gray-50 text-gray-500 text-xs uppercase tracking-wider">
                   <tr>
-                    <th className="px-4 py-3 text-left font-medium">Receipt #</th>
+                    <th className="px-4 py-3 text-left font-medium">Quote #</th>
                     <th className="px-4 py-3 text-left font-medium">Customer</th>
                     <th className="px-4 py-3 text-left font-medium">Phone</th>
                     <th className="px-4 py-3 text-left font-medium">Items</th>
                     <th className="px-4 py-3 text-left font-medium">Status</th>
-                    <th className="px-4 py-3 text-left font-medium">Estimate</th>
+                    <th className="px-4 py-3 text-left font-medium">Quote total</th>
                     <th className="px-4 py-3 text-left font-medium">Date</th>
                   </tr>
                 </thead>
@@ -161,7 +161,7 @@ export default function Receipts() {
             <div className="px-4 py-3 border-t border-gray-100 bg-gray-50/80 flex items-center justify-center gap-2 text-sm text-gray-600">
               <FileText size={16} className="text-gray-400 shrink-0" aria-hidden />
               <Link to="/admin/receipts/legacy/new" className="font-medium text-primary-600 hover:text-primary-700 hover:underline">
-                Add paper / old receipt
+                Add paper / old quote
               </Link>
             </div>
           )}

@@ -32,9 +32,9 @@ async function buildSummary(range) {
         byStatus: [{ $group: { _id: "$status", count: { $sum: 1 } } }],
         completedRevenue: [
           { $match: { status: "completed" } },
-          { $group: { _id: null, total: { $sum: "$finalPrice" } } },
+          { $group: { _id: null, total: { $sum: "$priceEstimate" } } },
         ],
-        allFinalSum: [{ $group: { _id: null, total: { $sum: "$finalPrice" } } }],
+        allFinalSum: [{ $group: { _id: null, total: { $sum: "$priceEstimate" } } }],
         count: [{ $count: "n" }],
       },
     },
@@ -81,7 +81,7 @@ async function buildSummary(range) {
       totalInRange: facet.count?.[0]?.n || 0,
       statusCounts: receiptStatusCounts,
       completedRevenue: facet.completedRevenue?.[0]?.total || 0,
-      sumFinalPriceAllStatuses: facet.allFinalSum?.[0]?.total || 0,
+      sumQuoteAllStatuses: facet.allFinalSum?.[0]?.total || 0,
     },
     inventory: {
       moneyOutPurchases: purchases[0]?.moneyOut || 0,
@@ -137,19 +137,19 @@ router.get("/export.xlsx", auth, async (req, res) => {
     ];
     ws0.addRow({ k: "From", v: from.toISOString() });
     ws0.addRow({ k: "To", v: to.toISOString() });
-    ws0.addRow({ k: "Receipts in range", v: summary.receipts.totalInRange });
-    ws0.addRow({ k: "Completed revenue (finalPrice)", v: summary.receipts.completedRevenue });
+    ws0.addRow({ k: "Quotes in range", v: summary.receipts.totalInRange });
+    ws0.addRow({ k: "Completed quote total (priceEstimate)", v: summary.receipts.completedRevenue });
     ws0.addRow({ k: "Money in — inventory sold (selling × qty)", v: summary.inventory.moneyInSold });
     ws0.addRow({ k: "Money out — purchases (cost × qty)", v: summary.inventory.moneyOutPurchases });
 
-    const ws1 = wb.addWorksheet("Receipts");
+    const ws1 = wb.addWorksheet("Quotes");
     ws1.columns = [
-      { header: "Receipt #", key: "receiptNumber", width: 18 },
+      { header: "Quote #", key: "receiptNumber", width: 18 },
       { header: "Kind", key: "receiptKind", width: 10 },
       { header: "Date", key: "date", width: 12 },
       { header: "Customer", key: "customerName", width: 22 },
       { header: "Status", key: "status", width: 16 },
-      { header: "Final", key: "finalPrice", width: 10 },
+      { header: "Quote", key: "priceEstimate", width: 10 },
     ];
     receipts.forEach((r) => {
       ws1.addRow({
@@ -158,7 +158,7 @@ router.get("/export.xlsx", auth, async (req, res) => {
         date: r.date ? new Date(r.date).toISOString().slice(0, 10) : "",
         customerName: r.customerName,
         status: r.status,
-        finalPrice: r.finalPrice,
+        priceEstimate: r.priceEstimate,
       });
     });
 

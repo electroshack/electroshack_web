@@ -118,11 +118,11 @@ async function main() {
           { description: "Lightning cable", category: "cell-phone-accessory", price: 15 },
         ],
         priceEstimate: 195,
-        finalPrice: 220.35,
-        gst: 9.75,
-        pst: 15.6,
       },
     });
+    if (r.priceEstimate !== 195) throw new Error("priceEstimate did not persist on POST");
+    if (r.finalPrice != null) throw new Error("backend should no longer store finalPrice");
+    if (r.gst != null || r.pst != null) throw new Error("backend should no longer store gst/pst");
     receiptId = r._id;
     receiptNumber = r.receiptNumber;
     if (!receiptNumber || !receiptId) throw new Error("missing receiptNumber/_id");
@@ -138,7 +138,7 @@ async function main() {
         customerName: "Legacy Customer",
         customerPhone: "905-555-9999",
         items: [{ description: "PC repair", category: "pc-repair", price: 80 }],
-        finalPrice: 80,
+        priceEstimate: 80,
         date: new Date("2018-04-12T10:00:00Z").toISOString(),
         status: "completed",
       },
@@ -199,12 +199,11 @@ async function main() {
           { description: "iPhone screen replacement", category: "repair", price: 200, status: "in-progress" },
         ],
         priceEstimate: 200,
-        finalPrice: 226,
-        gst: 10,
-        pst: 16,
       },
     });
     if (r.customerName !== "Smoke Customer (updated)") throw new Error("PUT did not persist");
+    if (r.priceEstimate !== 200) throw new Error("priceEstimate did not persist on PUT");
+    if (r.finalPrice != null) throw new Error("backend should no longer store finalPrice on PUT");
   });
 
   await step("Customer ticket lookup (public)", async () => {

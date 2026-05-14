@@ -115,14 +115,14 @@ export default function TicketLookup() {
             </h1>
             {!ticket && (
               <p className="text-gray-400 max-w-xl mx-auto mt-4 mb-2">
-                Enter your receipt number to check the status of your repair and communicate with our team.
+                Enter your quote number to check the status of your repair, see your estimate, and message our team.
               </p>
             )}
           </div>
           <form onSubmit={handleSearch} className="max-w-md mx-auto flex mt-6">
-            <input
+              <input
               type="text"
-              placeholder="Enter receipt number (e.g. 081952)"
+              placeholder="Enter quote / receipt number (e.g. 081952)"
               value={receiptNumber}
               onChange={(e) => setReceiptNumber(e.target.value)}
               className="flex-1 px-4 py-3 rounded-l-lg border-0 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 bg-dark-800 text-white placeholder-gray-500"
@@ -154,13 +154,23 @@ export default function TicketLookup() {
             <div className="bg-white rounded-2xl border border-gray-200 p-6 mb-6 shadow-sm">
               <div className="flex items-start justify-between mb-4">
                 <div>
-                  <h2 className="text-xl font-extrabold text-dark-900">Ticket #{ticket.receiptNumber}</h2>
+                  <h2 className="text-xl font-extrabold text-dark-900">Quote #{ticket.receiptNumber}</h2>
                   <p className="text-sm text-gray-500 mt-0.5">{ticket.customerName} &mdash; {new Date(ticket.date).toLocaleDateString()}</p>
                 </div>
                 <span className={`px-3 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider ${overallStatus?.color}`}>
                   {overallStatus?.label}
                 </span>
               </div>
+
+              {ticket.priceEstimate > 0 && (
+                <div className="flex items-center justify-between rounded-xl bg-primary-50 border border-primary-100 px-4 py-3 mb-4">
+                  <div>
+                    <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-primary-700">Estimated quote</p>
+                    <p className="text-[10px] text-gray-500 mt-0.5">Estimate only — final price may vary after diagnosis. This is a quote, not a tax invoice.</p>
+                  </div>
+                  <p className="text-2xl font-extrabold text-primary-600 font-mono tabular-nums">${Number(ticket.priceEstimate).toFixed(2)}</p>
+                </div>
+              )}
 
               {/* Overall progress */}
               {progressStep >= 0 && overallStatus?.step !== -1 && (

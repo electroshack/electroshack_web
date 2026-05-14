@@ -2,7 +2,7 @@ const express = require("express");
 const Receipt = require("../models/Receipt");
 const { auth } = require("../middleware/auth");
 const { nextStandardReceiptNumber, peekNextStandardReceiptNumber, generateLegacyReceiptNumber } = require("../utils/receiptNumbers");
-const { sendReceiptConfirmationEmail } = require("../lib/email");
+const { sendReceiptConfirmationEmail, sendReceiptUpdateEmail } = require("../lib/email");
 const router = express.Router();
 
 function publicTicketBaseUrl() {
@@ -10,9 +10,24 @@ function publicTicketBaseUrl() {
   return `${base}/ticket`;
 }
 
+/** Quotes have no tax math — keep payload pure even if older clients still send the fields. */
+function stripTaxFields(body) {
+  delete body.gst;
+  delete body.pst;
+  delete body.finalPrice;
+  return body;
+}
+
+/** Quote total = sum of line prices. Stored in `priceEstimate`. */
+function recalcPriceEstimate(items) {
+  if (!Array.isArray(items)) return 0;
+  const sum = items.reduce((s, it) => s + (Number(it?.price) || 0), 0);
+  return Math.round(sum * 100) / 100;
+}
+
 router.post("/", auth, async (req, res) => {
   try {
-    const body = { ...req.body };
+    const body = stripTaxFields({ ...req.body });
     const kind = body.receiptKind === "legacy" ? "legacy" : "standard";
 
     if (kind === "standard") {
@@ -26,6 +41,7 @@ router.post("/", auth, async (req, res) => {
       }
     }
     body.receiptKind = kind;
+    body.priceEstimate = recalcPriceEstimate(body.items);
 
     const receipt = new Receipt(body);
     await receipt.save();
@@ -37,6 +53,8 @@ router.post("/", auth, async (req, res) => {
         customerName: receipt.customerName,
         receiptNumber: receipt.receiptNumber,
         trackUrl,
+        priceEstimate: receipt.priceEstimate,
+        items: receipt.items,
       }).catch((e) => console.error("[receipt] confirmation email:", e?.message || e));
     }
 
@@ -104,7 +122,7 @@ router.get("/stats", auth, async (req, res) => {
       Receipt.aggregate([{ $group: { _id: "$status", count: { $sum: 1 } } }]),
       Receipt.aggregate([
         { $match: { status: "completed" } },
-        { $group: { _id: null, total: { $sum: "$finalPrice" } } },
+        { $group: { _id: null, total: { $sum: "$priceEstimate" } } },
       ]),
     ]);
 
@@ -146,14 +164,34 @@ router.put("/:id", auth, async (req, res) => {
   try {
     const existing = await Receipt.findById(req.params.id);
     if (!existing) return res.status(404).json({ error: "Receipt not found." });
-    const body = { ...req.body };
+    const body = stripTaxFields({ ...req.body });
+    const notifyCustomer = Boolean(body.notifyCustomer);
+    const updateMessage = typeof body.updateMessage === "string" ? body.updateMessage.trim() : "";
+    delete body.notifyCustomer;
+    delete body.updateMessage;
+
     body.receiptNumber = existing.receiptNumber;
     body.receiptKind = existing.receiptKind;
+    body.priceEstimate = recalcPriceEstimate(body.items ?? existing.items);
 
     const receipt = await Receipt.findByIdAndUpdate(req.params.id, body, {
       new: true,
       runValidators: true,
     });
+
+    if (notifyCustomer && receipt?.customerEmail && String(receipt.customerEmail).trim()) {
+      const trackUrl = `${publicTicketBaseUrl()}`;
+      void sendReceiptUpdateEmail({
+        to: receipt.customerEmail,
+        customerName: receipt.customerName,
+        receiptNumber: receipt.receiptNumber,
+        status: receipt.status,
+        message: updateMessage,
+        trackUrl,
+        priceEstimate: receipt.priceEstimate,
+      }).catch((e) => console.error("[receipt] update email:", e?.message || e));
+    }
+
     res.json(receipt);
   } catch (err) {
     res.status(400).json({ error: err.message });
@@ -165,16 +203,30 @@ router.post("/:id/update", auth, async (req, res) => {
     const receipt = await Receipt.findById(req.params.id);
     if (!receipt) return res.status(404).json({ error: "Receipt not found." });
 
-    receipt.updates.push({
-      message: req.body.message,
-      author: req.user.username,
-    });
+    const message = String(req.body.message ?? "").trim();
+    if (message) {
+      receipt.updates.push({ message, author: req.user.username });
+    }
 
     if (req.body.status) {
       receipt.status = req.body.status;
     }
 
     await receipt.save();
+
+    if (req.body.notifyCustomer && receipt.customerEmail && String(receipt.customerEmail).trim()) {
+      const trackUrl = `${publicTicketBaseUrl()}`;
+      void sendReceiptUpdateEmail({
+        to: receipt.customerEmail,
+        customerName: receipt.customerName,
+        receiptNumber: receipt.receiptNumber,
+        status: receipt.status,
+        message,
+        trackUrl,
+        priceEstimate: receipt.priceEstimate,
+      }).catch((e) => console.error("[receipt] update email:", e?.message || e));
+    }
+
     res.json(receipt);
   } catch (err) {
     res.status(400).json({ error: err.message });
@@ -255,9 +307,6 @@ router.get("/lookup/:receiptNumber", async (req, res) => {
       status: receipt.status,
       date: receipt.date,
       priceEstimate: receipt.priceEstimate,
-      finalPrice: receipt.finalPrice,
-      gst: receipt.gst,
-      pst: receipt.pst,
       items: receipt.items.map((it) => ({
         _id: it._id,
         description: it.description,

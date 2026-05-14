@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate, useParams, useLocation } from "react-router-dom";
-import { Save, ArrowLeft, Trash2, Plus, Send, X, Settings } from "lucide-react";
+import { Save, ArrowLeft, Trash2, Plus, Send, X, Settings, Mail } from "lucide-react";
 import toast from "react-hot-toast";
 import AdminLayout from "../../components/AdminLayout";
 import API from "../../api";
@@ -29,20 +29,8 @@ const statuses = [
 
 const emptyItem = { description: "", category: "repair", price: "", status: "received", notes: "" };
 
-/** Line totals: 5% GST + 8% RST on subtotal. */
-const ONTARIO_GST_RATE = 0.05;
-const ONTARIO_RST_RATE = 0.08;
-
 function roundMoney(n) {
   return Math.round((Number(n) || 0) * 100) / 100;
-}
-
-function ontarioTaxFromSubtotal(subtotal) {
-  const s = roundMoney(subtotal);
-  const gst = roundMoney(s * ONTARIO_GST_RATE);
-  const pst = roundMoney(s * ONTARIO_RST_RATE);
-  const finalPrice = roundMoney(s + gst + pst);
-  return { gst, pst, finalPrice };
 }
 
 const emptyForm = {
@@ -57,9 +45,6 @@ const emptyForm = {
   salesperson: "",
   items: [{ ...emptyItem }],
   priceEstimate: "",
-  finalPrice: "",
-  gst: "",
-  pst: "",
   status: "received",
   notes: "",
 };
@@ -78,6 +63,8 @@ export default function ReceiptForm() {
   const [saving, setSaving] = useState(false);
   const [updateMsg, setUpdateMsg] = useState("");
   const [updateStatus, setUpdateStatus] = useState("");
+  const [updateNotify, setUpdateNotify] = useState(true);
+  const [saveNotify, setSaveNotify] = useState(false);
   const [staffMsg, setStaffMsg] = useState("");
   /** Per–line draft message for “Post line update” (customer-visible item notes). */
   const [itemLineUpdateDraft, setItemLineUpdateDraft] = useState({});
@@ -95,7 +82,6 @@ export default function ReceiptForm() {
               }))
             : [{ ...emptyItem }];
           const sub = itemsMapped.reduce((sum, it) => sum + (parseFloat(it.price) || 0), 0);
-          const tax = ontarioTaxFromSubtotal(sub);
           setForm({
             receiptNumber: data.receiptNumber || "",
             receiptKind: data.receiptKind || "standard",
@@ -107,15 +93,12 @@ export default function ReceiptForm() {
             date: data.date ? new Date(data.date).toISOString().split("T")[0] : new Date().toISOString().split("T")[0],
             salesperson: data.salesperson || "",
             items: itemsMapped,
-            priceEstimate: data.priceEstimate ?? "",
-            finalPrice: tax.finalPrice,
-            gst: tax.gst,
-            pst: tax.pst,
+            priceEstimate: data.priceEstimate ?? roundMoney(sub),
             status: data.status || "received",
             notes: data.notes || "",
           });
         })
-        .catch(() => toast.error("Receipt not found."))
+        .catch(() => toast.error("Quote not found."))
         .finally(() => setLoading(false));
     }
   }, [id, isEdit]);
@@ -142,8 +125,7 @@ export default function ReceiptForm() {
     items[idx] = { ...items[idx], [field]: value };
     if (field === "price") {
       const sub = items.reduce((sum, it) => sum + (parseFloat(it.price) || 0), 0);
-      const { gst, pst, finalPrice } = ontarioTaxFromSubtotal(sub);
-      setForm({ ...form, items, gst, pst, finalPrice });
+      setForm({ ...form, items, priceEstimate: roundMoney(sub) });
       return;
     }
     setForm({ ...form, items });
@@ -152,16 +134,14 @@ export default function ReceiptForm() {
   const addItem = () => {
     const items = [...form.items, { ...emptyItem }];
     const sub = items.reduce((sum, it) => sum + (parseFloat(it.price) || 0), 0);
-    const { gst, pst, finalPrice } = ontarioTaxFromSubtotal(sub);
-    setForm({ ...form, items, gst, pst, finalPrice });
+    setForm({ ...form, items, priceEstimate: roundMoney(sub) });
   };
 
   const removeItem = (idx) => {
     if (form.items.length <= 1) return;
     const items = form.items.filter((_, i) => i !== idx);
     const sub = items.reduce((sum, it) => sum + (parseFloat(it.price) || 0), 0);
-    const { gst, pst, finalPrice } = ontarioTaxFromSubtotal(sub);
-    setForm({ ...form, items, gst, pst, finalPrice });
+    setForm({ ...form, items, priceEstimate: roundMoney(sub) });
   };
 
   const handleSubmit = async (e) => {
@@ -169,15 +149,11 @@ export default function ReceiptForm() {
     setSaving(true);
     try {
       const sub = form.items.reduce((sum, it) => sum + (parseFloat(it.price) || 0), 0);
-      const tax = ontarioTaxFromSubtotal(sub);
       const payload = {
         ...form,
         date: form.date ? new Date(form.date) : new Date(),
         items: form.items.map((it) => ({ ...it, price: parseFloat(it.price) || 0 })),
-        priceEstimate: parseFloat(form.priceEstimate) || 0,
-        finalPrice: tax.finalPrice,
-        gst: tax.gst,
-        pst: tax.pst,
+        priceEstimate: roundMoney(sub),
       };
       if (!isEdit) {
         if (isLegacyNew) {
@@ -193,12 +169,13 @@ export default function ReceiptForm() {
         }
       }
       if (isEdit) {
+        if (saveNotify) payload.notifyCustomer = true;
         const { data } = await API.put(`/receipts/${id}`, payload);
         setReceipt(data);
-        toast.success("Receipt updated!");
+        toast.success(saveNotify ? "Quote updated and customer notified!" : "Quote updated!");
       } else {
         const { data } = await API.post("/receipts", payload);
-        toast.success(`Receipt ${data.receiptNumber} created!`);
+        toast.success(`Quote ${data.receiptNumber} created!`);
         navigate("/admin/receipts");
       }
     } catch (err) {
@@ -221,15 +198,17 @@ export default function ReceiptForm() {
   const handleAddUpdate = async (e) => {
     e.preventDefault();
     if (!updateMsg.trim()) return;
+    const customerHasEmail = Boolean(receipt?.customerEmail && String(receipt.customerEmail).trim());
     try {
       const payload = { message: updateMsg };
       if (updateStatus) payload.status = updateStatus;
+      if (updateNotify && customerHasEmail) payload.notifyCustomer = true;
       const { data } = await API.post(`/receipts/${id}/update`, payload);
       setReceipt(data);
       setForm((f) => ({ ...f, status: data.status }));
       setUpdateMsg("");
       setUpdateStatus("");
-      toast.success("Update added!");
+      toast.success(updateNotify && customerHasEmail ? "Update posted and emailed to customer!" : "Update posted!");
     } catch {
       toast.error("Failed to add update.");
     }
@@ -282,22 +261,19 @@ export default function ReceiptForm() {
   const receiptFont = { fontFamily: '"IBM Plex Mono", ui-monospace, Consolas, monospace' };
 
   const itemsTotal = form.items.reduce((sum, it) => sum + (parseFloat(it.price) || 0), 0);
-  const displayGst = roundMoney(parseFloat(form.gst) || 0);
-  const displayPst = roundMoney(parseFloat(form.pst) || 0);
-  const displayFinal = roundMoney(parseFloat(form.finalPrice) || 0);
 
   return (
     <AdminLayout
       title={
         isEdit ? (
           <>
-            <span className="text-dark-900">Receipt </span>
+            <span className="text-dark-900">Quote </span>
             <span className="text-red-600 font-bold">{form.receiptNumber}</span>
           </>
         ) : isLegacyNew ? (
-          "Log historical receipt"
+          "Log historical quote"
         ) : (
-          "New invoice"
+          "New quote"
         )
       }
     >
@@ -312,8 +288,11 @@ export default function ReceiptForm() {
               <ArrowLeft size={20} />
             </button>
             <h2 className="text-lg font-semibold text-dark-900">
-              {isEdit ? "Edit invoice" : isLegacyNew ? "Paper / old receipt" : "New invoice"}
+              {isEdit ? "Edit quote" : isLegacyNew ? "Paper / old quote" : "New quote"}
             </h2>
+            <span className="text-[10px] uppercase tracking-[0.18em] font-bold text-amber-700 bg-amber-100 border border-amber-300 px-2 py-0.5 rounded-full">
+              No taxes — quote only
+            </span>
             {isEdit && (
               <button onClick={handleDelete} className="ml-auto flex items-center gap-1 text-sm text-red-500 hover:text-red-600 transition-colors">
                 <Trash2 size={14} /> Delete
@@ -327,12 +306,12 @@ export default function ReceiptForm() {
               {/* Invoice header: number, date, status */}
               <div className="bg-amber-200/60 px-3 py-3 border-b-2 border-amber-300/50">
                 <div className="flex flex-wrap items-end gap-x-6 gap-y-3">
-                  <span className="text-amber-900 font-bold text-xs tracking-[0.2em] uppercase shrink-0">Invoice</span>
+                  <span className="text-amber-900 font-bold text-xs tracking-[0.2em] uppercase shrink-0">Quote</span>
 
                   {isLegacyNew ? (
                     <>
                       <div className="min-w-[11rem]">
-                        <label className={labelCls}>Old receipt #</label>
+                        <label className={labelCls}>Old quote #</label>
                         <input
                           name="receiptNumber"
                           value={form.receiptNumber}
@@ -365,7 +344,7 @@ export default function ReceiptForm() {
                   ) : (
                     <>
                       <div>
-                        <label className={labelCls}>Receipt #</label>
+                        <label className={labelCls}>Quote #</label>
                         <div className="font-mono text-sm font-bold text-red-600 tabular-nums">{form.receiptNumber || "—"}</div>
                       </div>
                       <div>
@@ -537,27 +516,28 @@ export default function ReceiptForm() {
 
                   {/* Totals */}
                   <div className="grid grid-cols-12 gap-2 mt-4 pt-3 border-t-2 border-amber-800/20">
-                    <div className="col-span-7" />
+                    <div className="col-span-7 flex items-end">
+                      <p className="text-[10px] text-amber-800/55 italic max-w-xs">
+                        Quotes only — taxes are not collected or stored. Override the total below if labour, parts, or trade-in adjust the quote.
+                      </p>
+                    </div>
                     <div className="col-span-5 space-y-1">
                       <div className="flex justify-between text-xs">
-                        <span className="text-amber-800/60 font-bold uppercase">Subtotal</span>
+                        <span className="text-amber-800/60 font-bold uppercase">Items total</span>
                         <span className="font-bold">${itemsTotal.toFixed(2)}</span>
                       </div>
-                      <div className="flex justify-between text-xs items-center gap-2">
-                        <span className="text-amber-800/60 font-bold uppercase">GST (5%)</span>
-                        <span className="font-mono font-bold">${displayGst.toFixed(2)}</span>
-                      </div>
-                      <div className="flex justify-between text-xs items-center gap-2">
-                        <span className="text-amber-800/60 font-bold uppercase">RST (8%)</span>
-                        <span className="font-mono font-bold">${displayPst.toFixed(2)}</span>
-                      </div>
-                      <div className="flex justify-between text-xs items-center gap-2 pt-1 border-t border-amber-800/20">
-                        <span className="text-amber-800/60 font-bold uppercase">Estimate</span>
-                        <input name="priceEstimate" value={form.priceEstimate} onChange={handleChange} type="number" step="0.01" min="0" className="w-20 text-right px-1 py-0.5 bg-transparent border-b border-amber-800/20 text-xs focus:outline-none font-bold" placeholder="$" />
-                      </div>
-                      <div className="flex justify-between text-sm items-center gap-2">
-                        <span className="text-amber-900 font-extrabold uppercase">Total (incl. tax)</span>
-                        <span className="text-base font-extrabold font-mono">${displayFinal.toFixed(2)}</span>
+                      <div className="flex justify-between text-sm items-center gap-2 pt-2 border-t-2 border-amber-800/30">
+                        <span className="text-amber-900 font-extrabold uppercase">Quote total</span>
+                        <input
+                          name="priceEstimate"
+                          value={form.priceEstimate}
+                          onChange={handleChange}
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          className="w-28 text-right px-2 py-1 bg-white border-2 border-amber-800/30 rounded text-base focus:outline-none focus:border-amber-800/60 font-extrabold font-mono"
+                          placeholder="$"
+                        />
                       </div>
                     </div>
                   </div>
@@ -571,11 +551,25 @@ export default function ReceiptForm() {
               </div>
 
               {/* Save bar */}
-              <div className="bg-amber-200/40 px-4 py-2 border-t-2 border-amber-300/50 flex gap-3">
+              <div className="bg-amber-200/40 px-4 py-2 border-t-2 border-amber-300/50 flex flex-wrap items-center gap-3">
                 <button type="submit" disabled={saving} className="flex items-center gap-2 px-5 py-2 bg-primary-500 text-white font-medium text-sm rounded-lg hover:bg-primary-600 transition-colors disabled:opacity-50">
                   <Save size={16} />
-                  {saving ? "Saving..." : isEdit ? "Update Receipt" : "Create Receipt"}
+                  {saving ? "Saving..." : isEdit ? "Update quote" : "Create quote"}
                 </button>
+                {isEdit && form.customerEmail ? (
+                  <label className="flex items-center gap-2 text-xs text-amber-900/80 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={saveNotify}
+                      onChange={(e) => setSaveNotify(e.target.checked)}
+                      className="w-4 h-4 text-primary-500 rounded border-amber-800/40 focus:ring-primary-500"
+                    />
+                    <Mail size={13} className="text-amber-800/70" />
+                    Email {form.customerEmail} a quote update on save
+                  </label>
+                ) : isEdit ? (
+                  <span className="text-[11px] text-amber-800/60 italic">Add a customer email above to enable email updates.</span>
+                ) : null}
               </div>
             </div>
           </form>
@@ -609,6 +603,20 @@ export default function ReceiptForm() {
                       <Plus size={16} />
                     </button>
                   </div>
+                  {receipt?.customerEmail ? (
+                    <label className="flex items-center gap-2 text-xs text-gray-600 cursor-pointer select-none">
+                      <input
+                        type="checkbox"
+                        checked={updateNotify}
+                        onChange={(e) => setUpdateNotify(e.target.checked)}
+                        className="w-4 h-4 text-primary-500 rounded border-gray-300 focus:ring-primary-500"
+                      />
+                      <Mail size={13} className="text-primary-500" />
+                      Email this update to <span className="font-mono">{receipt.customerEmail}</span>
+                    </label>
+                  ) : (
+                    <p className="text-[11px] text-gray-400 italic">Add a customer email on this quote to enable customer email notifications.</p>
+                  )}
                 </form>
               </div>
 

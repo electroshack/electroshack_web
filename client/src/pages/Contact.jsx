@@ -4,7 +4,6 @@ import toast from "react-hot-toast";
 import API from "../api";
 import purolatorLogo from "../assets/purolator-logo.png";
 import canparLogo from "../assets/canpar-logo.png";
-import amazonLogo from "../assets/amazon-logo.png";
 
 export default function Contact() {
   const [form, setForm] = useState({ name: "", email: "", message: "" });
@@ -126,7 +125,6 @@ export default function Contact() {
         <div className="flex flex-wrap items-center justify-center gap-12 md:gap-20">
           <img src={purolatorLogo} alt="Purolator" className="h-7 max-w-[120px] object-contain opacity-60 hover:opacity-100 transition-all duration-500" />
           <img src={canparLogo} alt="Canpar" className="h-7 max-w-[120px] object-contain opacity-60 hover:opacity-100 transition-all duration-500" />
-          <img src={amazonLogo} alt="Amazon" className="h-7 max-w-[120px] object-contain opacity-60 hover:opacity-100 transition-all duration-500" />
         </div>
       </section>
     </main>

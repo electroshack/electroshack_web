@@ -126,11 +126,19 @@ export default function Shop() {
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
               {items.map((item) => (
                 <div key={item._id} className="bg-white rounded-xl border border-gray-100 overflow-hidden hover:border-primary-200 transition-all hover:-translate-y-1 duration-300">
-                  <div className="relative h-48 bg-gradient-to-b from-gray-50 to-gray-100 flex items-center justify-center">
-                    {item.images && item.images[0] && /^https?:\/\//i.test(String(item.images[0])) ? (
-                      <img src={String(item.images[0])} alt="" className="h-full w-full object-contain p-3" />
+                  <div className="relative h-48 bg-white flex items-center justify-center overflow-hidden">
+                    {item.images && item.images[0] && /^(https?:|data:image\/)/i.test(String(item.images[0])) ? (
+                      <img
+                        src={String(item.images[0])}
+                        alt={item.name}
+                        loading="lazy"
+                        className="h-full w-full object-contain p-2"
+                        onError={(e) => {
+                          e.currentTarget.style.display = "none";
+                        }}
+                      />
                     ) : (
-                      <Package size={48} className="text-gray-300" />
+                      <Package size={48} className="text-gray-200" />
                     )}
                     <span
                       className={`absolute left-2 top-2 px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wide shadow-sm border border-white/60 ${
