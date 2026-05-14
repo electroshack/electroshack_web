@@ -126,19 +126,31 @@ function storeName() {
 }
 
 /**
- * Wraps inner HTML in the brand chrome (hero logo band + dark-on-light title + body).
+ * Modern transactional email shell, inspired by the Starbucks app receipt UI.
  *
- * Gmail / Apple Mail in **light** theme often strip `linear-gradient` backgrounds;
- * white headline text then sits on white and disappears. Fix: (1) logo-only row
- * uses solid `bgcolor` + `background-color` (no gradient on text-bearing cells).
- * (2) Title + subtitle live on explicit white with `#0f172a` / `#475569` text.
- * (3) `color-scheme` hints reduce unwanted auto-inversion while staying readable
- *    in both app light and dark themes.
+ * Layout (top → bottom):
+ *   - Slim dark band with the real Electroshack logo (`email-hero-logo.png`)
+ *   - Section eyebrow ("REPAIR UPDATE", "QUOTE", "PARTS LIST", ...) over hairline
+ *   - Headline + optional subhead
+ *   - Body (per-template content)
+ *   - Optional rounded CTA button
+ *   - Quiet footer with address / phone / site link
+ *
+ * Mobile rules baked in (no media queries — many clients strip them):
+ *   - Outer card uses `width:100%` + `max-width:600px` so it fills phone width
+ *   - Side padding is a percentage so it scales down naturally
+ *   - Body text is 16px (readable everywhere, never auto-zoomed by iOS)
+ *   - Buttons are at least 48px tall for thumb taps
+ *   - Logo image stays inside a fixed-height band (max-width 200px / height auto)
+ *
+ * `eyebrow` is rendered in primary-blue uppercase tracking, matching the
+ * Starbucks "TRANSACTION" label style.
  */
-function brandedShell({ headlineHtml, headlineSubHtml = "", innerHtml, ctaHtml = "", footerNote = "" }) {
+function brandedShell({ headlineHtml, headlineSubHtml = "", eyebrow = "", innerHtml, ctaHtml = "", footerNote = "" }) {
   const shop = storeName();
   const site = publicSiteUrl();
   const logo = logoUrl();
+  const preheaderText = (headlineSubHtml || headlineHtml || "").replace(/<[^>]+>/g, "").trim();
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -149,43 +161,60 @@ function brandedShell({ headlineHtml, headlineSubHtml = "", innerHtml, ctaHtml =
   <meta name="supported-color-schemes" content="light dark" />
   <title>${escapeHtml(shop)}</title>
   <!--[if mso]><noscript><xml><o:OfficeDocumentSettings><o:PixelsPerInch>96</o:PixelsPerInch></o:OfficeDocumentSettings></xml></noscript><![endif]-->
+  <style>
+    /* Mobile tweaks. Most clients honor these even though some (Outlook desktop) ignore them. */
+    @media only screen and (max-width: 520px) {
+      .es-card { width: 100% !important; border-radius: 0 !important; }
+      .es-pad { padding-left: 22px !important; padding-right: 22px !important; }
+      .es-headline { font-size: 22px !important; }
+      .es-eyebrow { font-size: 11px !important; }
+      .es-cta a { display: block !important; padding: 16px 0 !important; }
+    }
+  </style>
 </head>
-<body style="margin:0;padding:0;background-color:#eef2f7;color:#0f172a;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;">
-  <div style="display:none;max-height:0;overflow:hidden;mso-hide:all;">${escapeHtml(headlineHtml.replace(/<[^>]+>/g, ""))}</div>
-  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" bgcolor="#eef2f7" style="background-color:#eef2f7;padding:28px 12px;">
+<body style="margin:0;padding:0;background-color:#eef2f7;color:#0f172a;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;-webkit-font-smoothing:antialiased;">
+  <div style="display:none;max-height:0;overflow:hidden;mso-hide:all;font-size:0;line-height:0;color:#eef2f7;">${escapeHtml(preheaderText)}</div>
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" bgcolor="#eef2f7" style="background-color:#eef2f7;">
     <tr>
-      <td align="center">
-        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" bgcolor="#ffffff" style="max-width:560px;background-color:#ffffff;border-radius:16px;overflow:hidden;border:1px solid #d8e0ec;">
-          <!-- Brand bar: HTML wordmark renders even when images are blocked, with the PNG layered on top when allowed. -->
+      <td align="center" style="padding:24px 12px;">
+        <table role="presentation" class="es-card" width="600" cellspacing="0" cellpadding="0" border="0" bgcolor="#ffffff" style="width:600px;max-width:600px;background-color:#ffffff;border-radius:18px;overflow:hidden;border:1px solid #e2e8f0;">
+          <!-- Brand band: real logo, dark navy background, generous breathing room. -->
           <tr>
-            <td align="center" bgcolor="#0f172a" style="background-color:#0f172a;padding:20px 24px 18px;text-align:center;">
+            <td align="center" bgcolor="#0f172a" style="background-color:#0f172a;padding:22px 20px;text-align:center;">
               <a href="${escapeHtml(site)}" style="text-decoration:none;display:inline-block;">
-                <span style="display:inline-block;font-family:'Segoe UI',Roboto,Arial,sans-serif;font-size:26px;font-weight:900;letter-spacing:0.06em;color:#facc15;line-height:1;">ELECTRO<span style="color:#38bdf8;">/</span>SHACK</span>
+                <img src="${escapeHtml(logo)}" alt="${escapeHtml(shop)}" width="200" height="auto" style="display:block;margin:0 auto;max-width:60%;width:200px;height:auto;border:0;outline:none;text-decoration:none;" />
               </a>
-              <div style="font-size:0;line-height:0;height:0;">
-                <img src="${escapeHtml(logo)}" alt="" width="220" style="display:block;margin:8px auto 0;max-width:90%;width:220px;height:auto;border:0;outline:none;text-decoration:none;" />
-              </div>
             </td>
           </tr>
-          <!-- Title row: dark-on-light, always readable -->
+          <!-- Section eyebrow over a hairline (Starbucks "TRANSACTION" style). -->
+          ${
+            eyebrow
+              ? `<tr>
+                  <td align="center" bgcolor="#ffffff" class="es-pad" style="background-color:#ffffff;padding:26px 36px 0;text-align:center;">
+                    <p class="es-eyebrow" style="margin:0;font-size:12px;font-weight:800;letter-spacing:0.22em;text-transform:uppercase;color:#0284c7;">${escapeHtml(eyebrow)}</p>
+                  </td>
+                </tr>`
+              : ""
+          }
+          <!-- Headline + subhead. -->
           <tr>
-            <td align="center" bgcolor="#ffffff" style="background-color:#ffffff;padding:22px 28px 6px;text-align:center;">
-              <h1 style="margin:0;padding:0;font-size:21px;font-weight:800;letter-spacing:-0.015em;line-height:1.3;color:#0f172a;">${headlineHtml}</h1>
-              ${headlineSubHtml ? `<p style="margin:8px 0 0;padding:0;font-size:14px;line-height:1.5;color:#64748b;">${headlineSubHtml}</p>` : ""}
+            <td align="center" bgcolor="#ffffff" class="es-pad" style="background-color:#ffffff;padding:${eyebrow ? "10px" : "30px"} 36px 6px;text-align:center;">
+              <h1 class="es-headline" style="margin:0;padding:0;font-size:24px;font-weight:800;letter-spacing:-0.015em;line-height:1.25;color:#0f172a;">${headlineHtml}</h1>
+              ${headlineSubHtml ? `<p style="margin:10px 0 0;padding:0;font-size:15px;line-height:1.5;color:#64748b;">${headlineSubHtml}</p>` : ""}
             </td>
           </tr>
           <!-- Body -->
           <tr>
-            <td bgcolor="#ffffff" style="background-color:#ffffff;color:#334155;padding:18px 28px 8px;font-size:15px;line-height:1.6;">${innerHtml}</td>
+            <td bgcolor="#ffffff" class="es-pad" style="background-color:#ffffff;color:#1e293b;padding:22px 36px 8px;font-size:16px;line-height:1.6;">${innerHtml}</td>
           </tr>
-          ${ctaHtml ? `<tr><td align="center" bgcolor="#ffffff" style="background-color:#ffffff;padding:8px 28px 26px;">${ctaHtml}</td></tr>` : ""}
+          ${ctaHtml ? `<tr><td align="center" bgcolor="#ffffff" class="es-pad es-cta" style="background-color:#ffffff;padding:10px 36px 30px;">${ctaHtml}</td></tr>` : ""}
           <!-- Footer -->
           <tr>
-            <td bgcolor="#f8fafc" style="padding:20px 28px 24px;border-top:1px solid #e2e8f0;background-color:#f8fafc;text-align:center;font-size:12px;color:#64748b;line-height:1.65;">
-              ${footerNote ? `<p style="margin:0 0 10px;color:#475569;">${footerNote}</p>` : ""}
-              <p style="margin:0 0 4px;font-weight:700;color:#0f172a;letter-spacing:0.02em;">${escapeHtml(shop)}</p>
-              <p style="margin:0;color:#64748b;">9600 Islington Ave, Woodbridge, ON L4H 2T1 &middot; <a href="tel:9058931613" style="color:#0284c7;text-decoration:none;">(905) 893-1613</a></p>
-              <p style="margin:6px 0 0;"><a href="${escapeHtml(site)}" style="color:#0284c7;text-decoration:none;font-weight:500;">${escapeHtml(site.replace(/^https?:\/\//, ""))}</a></p>
+            <td bgcolor="#f8fafc" class="es-pad" style="padding:22px 36px 26px;border-top:1px solid #e2e8f0;background-color:#f8fafc;text-align:center;font-size:13px;color:#64748b;line-height:1.65;">
+              ${footerNote ? `<p style="margin:0 0 12px;color:#475569;font-size:13px;">${footerNote}</p>` : ""}
+              <p style="margin:0 0 4px;font-weight:700;color:#0f172a;letter-spacing:0.02em;font-size:14px;">${escapeHtml(shop)}</p>
+              <p style="margin:0;color:#64748b;">9600 Islington Ave, Woodbridge, ON L4H 2T1</p>
+              <p style="margin:6px 0 0;"><a href="tel:9058931613" style="color:#0284c7;text-decoration:none;font-weight:600;">(905) 893-1613</a> &middot; <a href="${escapeHtml(site)}" style="color:#0284c7;text-decoration:none;font-weight:600;">${escapeHtml(site.replace(/^https?:\/\//, ""))}</a></p>
             </td>
           </tr>
         </table>
@@ -197,8 +226,9 @@ function brandedShell({ headlineHtml, headlineSubHtml = "", innerHtml, ctaHtml =
 </html>`;
 }
 
-function ctaButton({ href, label, color = "#22c55e" }) {
-  return `<a href="${escapeHtml(href)}" style="display:inline-block;background:${color};color:#ffffff !important;font-weight:700;font-size:15px;padding:14px 28px;border-radius:999px;text-decoration:none;box-shadow:0 4px 14px rgba(15,23,42,0.18);">${escapeHtml(label)}</a>`;
+/** Pill-shaped CTA. Defaults to brand green; can be overridden per template. */
+function ctaButton({ href, label, color = "#16a34a" }) {
+  return `<a href="${escapeHtml(href)}" style="display:inline-block;background:${color};color:#ffffff !important;font-weight:700;font-size:15px;padding:15px 34px;border-radius:999px;text-decoration:none;letter-spacing:0.02em;mso-padding-alt:0;">${escapeHtml(label)}</a>`;
 }
 
 /**
@@ -273,30 +303,45 @@ async function sendMail({ to, subject, text, html, replyTo }) {
   }
 }
 
+function buildStockNotificationHtml({ customerName, itemTitle, productName, barcode }) {
+  const shop = storeName();
+  const firstName = customerName ? String(customerName).split(/[ ,]/)[0].trim() : "";
+  const greeting = firstName ? `Hi ${escapeHtml(firstName)},` : "Hi,";
+  const innerHtml = `
+    <p style="margin:0 0 16px;">${greeting}</p>
+    <p style="margin:0 0 22px;">Good news — the item you asked us to hold is in stock and ready for pickup at ${escapeHtml(shop)}.</p>
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-top:1px solid #e2e8f0;border-bottom:1px solid #e2e8f0;margin:0 0 22px;">
+      <tr>
+        <td style="padding:16px 0;font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:0.14em;color:#94a3b8;width:50%;">Item</td>
+        <td align="right" style="padding:16px 0;font-size:15px;font-weight:700;color:#0f172a;">${escapeHtml(itemTitle)}</td>
+      </tr>
+      ${
+        productName
+          ? `<tr><td style="padding:14px 0;font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:0.14em;color:#94a3b8;border-top:1px solid #f1f5f9;">Listed as</td><td align="right" style="padding:14px 0;font-size:14px;color:#334155;border-top:1px solid #f1f5f9;">${escapeHtml(productName)}</td></tr>`
+          : ""
+      }
+      ${
+        barcode
+          ? `<tr><td style="padding:14px 0;font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:0.14em;color:#94a3b8;border-top:1px solid #f1f5f9;">Code</td><td align="right" style="padding:14px 0;font-size:14px;color:#334155;border-top:1px solid #f1f5f9;font-family:ui-monospace,Consolas,monospace;">${escapeHtml(barcode)}</td></tr>`
+          : ""
+      }
+    </table>
+    <p style="margin:0;color:#64748b;font-size:14px;">Call <a href="tel:9058931613" style="color:#0284c7;text-decoration:none;font-weight:600;">(905) 893-1613</a> or drop in to grab it.</p>
+  `;
+  return brandedShell({
+    eyebrow: "Back in stock",
+    headlineHtml: `${escapeHtml(itemTitle)} is in.`,
+    headlineSubHtml: "We saved this one for you.",
+    innerHtml,
+    ctaHtml: ctaButton({ href: `${publicSiteUrl()}/shop`, label: "View shop" }),
+    footerNote: "You're getting this because you asked us to hold this item.",
+  });
+}
+
 async function sendStockNotificationEmail({ to, customerName, itemTitle, productName, barcode }) {
   const shop = storeName();
   const subject = `${shop}: ${itemTitle} is back in stock`;
-  const greeting = customerName ? `Hi ${escapeHtml(customerName)},` : "Hi,";
-  const innerHtml = `
-    <p style="margin:0 0 16px;font-size:15px;line-height:1.55;color:#334155;">${greeting}</p>
-    <p style="margin:0 0 16px;font-size:15px;line-height:1.55;color:#334155;">Good news — the item we noted for you is in stock and ready to view.</p>
-    <table role="presentation" cellspacing="0" cellpadding="0" width="100%" style="margin:14px 0 18px;">
-      <tr><td style="padding:14px 18px;background:#f8fafc;border-radius:12px;border:1px solid #e2e8f0;font-size:14px;color:#0f172a;">
-        <div style="font-weight:700;color:#0284c7;font-size:13px;text-transform:uppercase;letter-spacing:0.1em;">You asked for</div>
-        <div style="margin-top:4px;font-weight:700;font-size:15px;">${escapeHtml(itemTitle)}</div>
-        ${productName ? `<div style="margin-top:6px;color:#475569;">Now stocked as: <span style="color:#0f172a;font-weight:600;">${escapeHtml(productName)}</span></div>` : ""}
-        ${barcode ? `<div style="margin-top:4px;font-family:ui-monospace,Consolas,monospace;color:#64748b;font-size:13px;">Code: ${escapeHtml(barcode)}</div>` : ""}
-      </td></tr>
-    </table>
-    <p style="margin:0;font-size:13px;line-height:1.55;color:#64748b;">Stop by the shop or call (905) 893-1613 to grab it.</p>
-  `;
-  const html = brandedShell({
-    headlineHtml: "It's in stock",
-    headlineSubHtml: "We saved this for you",
-    innerHtml,
-    ctaHtml: ctaButton({ href: `${publicSiteUrl()}/shop`, label: "View shop" }),
-    footerNote: "You're getting this because you asked us to hold this item for you.",
-  });
+  const html = buildStockNotificationHtml({ customerName, itemTitle, productName, barcode });
   const text = [
     customerName ? `Hi ${customerName},` : "Hi,",
     "",
@@ -309,6 +354,56 @@ async function sendStockNotificationEmail({ to, customerName, itemTitle, product
     `— ${shop}`,
   ].filter(Boolean).join("\n");
   return sendMail({ to, subject, text, html });
+}
+
+/**
+ * Pure HTML builder for the new-quote email. Same code path as sending —
+ * exposed so the preview server can render exactly what Resend delivers.
+ */
+function buildReceiptConfirmationHtml({ customerName, receiptNumber, trackUrl, priceEstimate, items }) {
+  const shop = storeName();
+  const firstName = customerName ? String(customerName).split(/[ ,]/)[0].trim() : "";
+  const greeting = firstName ? `Hi ${firstName},` : "Hi,";
+  const itemRows = (Array.isArray(items) ? items : [])
+    .filter((it) => it && (it.description || it.price))
+    .map(
+      (it, idx) =>
+        `<tr><td style="padding:14px 0;font-size:15px;color:#1e293b;line-height:1.5;${idx > 0 ? "border-top:1px solid #f1f5f9;" : ""}">${escapeHtml(it.description || "Item")}</td><td align="right" style="padding:14px 0;font-size:15px;color:#0f172a;font-weight:700;${idx > 0 ? "border-top:1px solid #f1f5f9;" : ""}">${fmtMoney(it.price)}</td></tr>`
+    )
+    .join("");
+  const innerHtml = `
+    <p style="margin:0 0 16px;">${escapeHtml(greeting)}</p>
+    <p style="margin:0 0 26px;">Thanks for stopping by ${escapeHtml(shop)}. Your quote is logged in our system — save this email for your records.</p>
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:0 0 22px;border-top:1px solid #e2e8f0;border-bottom:1px solid #e2e8f0;">
+      <tr>
+        <td style="padding:16px 0;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.14em;color:#94a3b8;">Quote #</td>
+        <td align="right" style="padding:16px 0;font-size:17px;font-weight:800;color:#0284c7;letter-spacing:0.04em;font-family:ui-monospace,Consolas,monospace;">${escapeHtml(receiptNumber)}</td>
+      </tr>
+    </table>
+    ${
+      itemRows
+        ? `<p style="margin:0 0 6px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.14em;color:#94a3b8;">Items</p>
+           <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:0 0 6px;border-bottom:1px solid #e2e8f0;"><tbody>${itemRows}</tbody></table>`
+        : ""
+    }
+    ${
+      Number(priceEstimate) > 0
+        ? `<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:18px 0 8px;"><tr>
+            <td style="font-size:15px;font-weight:700;color:#0f172a;">Estimated total</td>
+            <td align="right" style="font-size:24px;font-weight:800;color:#0f172a;letter-spacing:-0.01em;">${fmtMoney(priceEstimate)}</td>
+          </tr></table>`
+        : ""
+    }
+    <p style="margin:18px 0 0;font-size:13px;line-height:1.6;color:#94a3b8;">This is a quote, not a tax invoice. Final pricing may change after diagnosis — we'll email you with any updates.</p>
+  `;
+  return brandedShell({
+    eyebrow: "Quote",
+    headlineHtml: "Your quote is confirmed",
+    headlineSubHtml: "We'll keep you posted as the repair moves along.",
+    innerHtml,
+    ctaHtml: ctaButton({ href: trackUrl, label: "Track your repair" }),
+    footerNote: "Reply to this email or call the shop if you have questions.",
+  });
 }
 
 /** New quote — sent to the customer when a digital quote is created with their email. */
@@ -328,40 +423,7 @@ async function sendReceiptConfirmationEmail({
   const greeting = firstName ? `Hi ${firstName},` : "Hi,";
   const subject = `${shop} — Quote ${receiptNumber}`;
 
-  const itemRows = (Array.isArray(items) ? items : [])
-    .filter((it) => it && (it.description || it.price))
-    .map(
-      (it) =>
-        `<tr><td style="padding:8px 0;font-size:13px;color:#334155;border-bottom:1px solid #f1f5f9;">${escapeHtml(it.description || "Item")}</td><td align="right" style="padding:8px 0;font-size:13px;color:#0f172a;font-weight:600;border-bottom:1px solid #f1f5f9;font-family:ui-monospace,Consolas,monospace;">${fmtMoney(it.price)}</td></tr>`
-    )
-    .join("");
-
-  const innerHtml = `
-    <p style="margin:0 0 12px;font-size:15px;line-height:1.55;color:#334155;">${escapeHtml(greeting)}</p>
-    <p style="margin:0 0 18px;font-size:15px;line-height:1.55;color:#334155;">Thanks for stopping by ${escapeHtml(shop)}. Your quote is logged in our system — save this email for your records.</p>
-    <div style="background:#f8fafc;border-radius:14px;padding:18px 20px;border:1px solid #e2e8f0;margin-bottom:18px;">
-      <p style="margin:0 0 6px;font-size:11px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:#64748b;">Quote number</p>
-      <p style="margin:0;font-family:ui-monospace,Consolas,monospace;font-size:22px;font-weight:800;color:#0284c7;letter-spacing:0.04em;">${escapeHtml(receiptNumber)}</p>
-    </div>
-    ${itemRows ? `<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-top:1px solid #f1f5f9;border-bottom:1px solid #f1f5f9;margin-bottom:14px;"><tbody>${itemRows}</tbody></table>` : ""}
-    ${
-      Number(priceEstimate) > 0
-        ? `<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:6px 0 14px;"><tr>
-            <td style="padding:10px 0 0;font-size:11px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:#64748b;">Estimated quote</td>
-            <td align="right" style="padding:10px 0 0;font-size:20px;font-weight:800;color:#0f172a;font-family:ui-monospace,Consolas,monospace;">${fmtMoney(priceEstimate)}</td>
-          </tr></table>`
-        : ""
-    }
-    <p style="margin:0;font-size:12px;line-height:1.55;color:#94a3b8;">This is a quote, not a tax invoice. Final pricing may change after diagnosis — we'll message you with any updates.</p>
-  `;
-
-  const html = brandedShell({
-    headlineHtml: "Your quote is confirmed",
-    headlineSubHtml: "Track your repair anytime with the link below.",
-    innerHtml,
-    ctaHtml: ctaButton({ href: trackUrl, label: "Track your repair" }),
-    footerNote: "Need to talk to us? Reply to this email or call the shop.",
-  });
+  const html = buildReceiptConfirmationHtml({ customerName, receiptNumber, trackUrl, priceEstimate, items });
 
   const text = [
     greeting,
@@ -390,6 +452,55 @@ const STATUS_LABELS = {
   cancelled: "Cancelled",
 };
 
+function buildReceiptUpdateHtml({ customerName, receiptNumber, status, message, trackUrl, priceEstimate }) {
+  const shop = storeName();
+  const firstName = customerName ? String(customerName).split(/[ ,]/)[0].trim() : "";
+  const greeting = firstName ? `Hi ${firstName},` : "Hi,";
+  const statusLabel = STATUS_LABELS[status] || status || "";
+  const innerHtml = `
+    <p style="margin:0 0 16px;">${escapeHtml(greeting)}</p>
+    <p style="margin:0 0 22px;">There's an update on your quote at ${escapeHtml(shop)}.</p>
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:0 0 22px;border-top:1px solid #e2e8f0;border-bottom:1px solid #e2e8f0;">
+      <tr>
+        <td style="padding:16px 0;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.14em;color:#94a3b8;">Quote #</td>
+        <td align="right" style="padding:16px 0;font-size:17px;font-weight:800;color:#0284c7;letter-spacing:0.04em;font-family:ui-monospace,Consolas,monospace;">${escapeHtml(receiptNumber)}</td>
+      </tr>
+      ${
+        statusLabel
+          ? `<tr>
+              <td style="padding:16px 0;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.14em;color:#94a3b8;border-top:1px solid #f1f5f9;">Status</td>
+              <td align="right" style="padding:16px 0;border-top:1px solid #f1f5f9;"><span style="display:inline-block;padding:6px 14px;border-radius:999px;background:#dcfce7;color:#15803d;font-weight:700;font-size:12px;text-transform:uppercase;letter-spacing:0.1em;">${escapeHtml(statusLabel)}</span></td>
+            </tr>`
+          : ""
+      }
+    </table>
+    ${
+      message
+        ? `<div style="background:#fffbeb;border-left:3px solid #f59e0b;border-radius:0 8px 8px 0;padding:14px 18px;margin:0 0 22px;">
+            <p style="margin:0 0 6px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.12em;color:#b45309;">Note from our team</p>
+            <p style="margin:0;font-size:15px;line-height:1.55;color:#1c1917;">${escapeHtml(message)}</p>
+          </div>`
+        : ""
+    }
+    ${
+      Number(priceEstimate) > 0
+        ? `<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:0 0 8px;"><tr>
+            <td style="font-size:15px;font-weight:700;color:#0f172a;">Current quote</td>
+            <td align="right" style="font-size:24px;font-weight:800;color:#0f172a;letter-spacing:-0.01em;">${fmtMoney(priceEstimate)}</td>
+          </tr></table>`
+        : ""
+    }
+    <p style="margin:18px 0 0;font-size:13px;line-height:1.6;color:#94a3b8;">This is a quote, not a tax invoice. Reply to this email if you have questions.</p>
+  `;
+  return brandedShell({
+    eyebrow: "Repair update",
+    headlineHtml: "Update on your repair",
+    headlineSubHtml: statusLabel ? `Status: ${escapeHtml(statusLabel)}` : "",
+    innerHtml,
+    ctaHtml: ctaButton({ href: trackUrl, label: "View full timeline" }),
+  });
+}
+
 /**
  * Sent when admin updates a quote OR adds an "update" with the email-the-customer
  * option enabled.
@@ -414,52 +525,7 @@ async function sendReceiptUpdateEmail({
     ? `${shop} — Quote ${receiptNumber} update: ${statusLabel}`
     : `${shop} — Quote ${receiptNumber} update`;
 
-  const innerHtml = `
-    <p style="margin:0 0 14px;font-size:15px;line-height:1.55;color:#334155;">${escapeHtml(greeting)}</p>
-    <p style="margin:0 0 18px;font-size:15px;line-height:1.55;color:#334155;">There's an update on your quote at ${escapeHtml(shop)}.</p>
-    <div style="background:#f8fafc;border-radius:14px;padding:18px 20px;border:1px solid #e2e8f0;margin-bottom:16px;">
-      <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
-        <tr>
-          <td>
-            <p style="margin:0 0 4px;font-size:11px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:#64748b;">Quote</p>
-            <p style="margin:0;font-family:ui-monospace,Consolas,monospace;font-size:18px;font-weight:800;color:#0284c7;letter-spacing:0.04em;">${escapeHtml(receiptNumber)}</p>
-          </td>
-          ${
-            statusLabel
-              ? `<td align="right" style="vertical-align:top;">
-                  <p style="margin:0 0 4px;font-size:11px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:#64748b;">Status</p>
-                  <p style="margin:0;display:inline-block;padding:6px 12px;border-radius:999px;background:#dcfce7;color:#15803d;font-weight:700;font-size:12px;text-transform:uppercase;letter-spacing:0.08em;">${escapeHtml(statusLabel)}</p>
-                </td>`
-              : ""
-          }
-        </tr>
-      </table>
-    </div>
-    ${
-      message
-        ? `<div style="background:#fff7ed;border-left:4px solid #f59e0b;border-radius:4px;padding:12px 16px;margin-bottom:18px;">
-            <p style="margin:0 0 4px;font-size:11px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:#92400e;">Note from our team</p>
-            <p style="margin:0;font-size:14px;line-height:1.55;color:#0f172a;">${escapeHtml(message)}</p>
-          </div>`
-        : ""
-    }
-    ${
-      Number(priceEstimate) > 0
-        ? `<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:0 0 14px;border-top:1px solid #f1f5f9;padding-top:12px;"><tr>
-            <td style="font-size:11px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:#64748b;">Current quote</td>
-            <td align="right" style="font-size:18px;font-weight:800;color:#0f172a;font-family:ui-monospace,Consolas,monospace;">${fmtMoney(priceEstimate)}</td>
-          </tr></table>`
-        : ""
-    }
-    <p style="margin:0;font-size:12px;line-height:1.55;color:#94a3b8;">This is a quote, not a tax invoice. Reply to this email if you have questions.</p>
-  `;
-
-  const html = brandedShell({
-    headlineHtml: "Update on your repair",
-    headlineSubHtml: statusLabel ? `Status: ${escapeHtml(statusLabel)}` : "",
-    innerHtml,
-    ctaHtml: ctaButton({ href: trackUrl, label: "View full timeline" }),
-  });
+  const html = buildReceiptUpdateHtml({ customerName, receiptNumber, status, message, trackUrl, priceEstimate });
 
   const text = [
     greeting,
@@ -477,6 +543,68 @@ async function sendReceiptUpdateEmail({
   return sendMail({ to: recipient, subject, text, html });
 }
 
+const GROCERY_VERBS = {
+  added: "added to",
+  updated: "updated on",
+  removed: "removed from",
+  matched: "matched on",
+};
+
+function buildAdminGroceryHtml({ action, item, actor, matchedInventory }) {
+  const shop = storeName();
+  const verb = GROCERY_VERBS[action] || "changed on";
+  const innerHtml = `
+    <p style="margin:0 0 22px;">A line on the parts / grocery list was just <strong>${escapeHtml(verb)}</strong> the list at ${escapeHtml(shop)}.</p>
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:0 0 22px;border-top:1px solid #e2e8f0;border-bottom:1px solid #e2e8f0;">
+      <tr>
+        <td style="padding:16px 0;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.14em;color:#94a3b8;width:38%;">Item</td>
+        <td align="right" style="padding:16px 0;font-size:16px;font-weight:700;color:#0f172a;">${escapeHtml(item?.title || "(no title)")}</td>
+      </tr>
+      ${
+        item?.notes
+          ? `<tr><td style="padding:14px 0;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.14em;color:#94a3b8;border-top:1px solid #f1f5f9;">Notes</td><td align="right" style="padding:14px 0;font-size:14px;color:#334155;border-top:1px solid #f1f5f9;">${escapeHtml(item.notes)}</td></tr>`
+          : ""
+      }
+      ${
+        item?.matchBarcode
+          ? `<tr><td style="padding:14px 0;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.14em;color:#94a3b8;border-top:1px solid #f1f5f9;">Barcode</td><td align="right" style="padding:14px 0;font-size:14px;color:#334155;border-top:1px solid #f1f5f9;font-family:ui-monospace,Consolas,monospace;">${escapeHtml(item.matchBarcode)}</td></tr>`
+          : ""
+      }
+      ${
+        item?.matchItemNumber
+          ? `<tr><td style="padding:14px 0;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.14em;color:#94a3b8;border-top:1px solid #f1f5f9;">Item #</td><td align="right" style="padding:14px 0;font-size:14px;color:#334155;border-top:1px solid #f1f5f9;font-family:ui-monospace,Consolas,monospace;">${escapeHtml(item.matchItemNumber)}</td></tr>`
+          : ""
+      }
+      <tr>
+        <td style="padding:14px 0;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.14em;color:#94a3b8;border-top:1px solid #f1f5f9;">Status</td>
+        <td align="right" style="padding:14px 0;border-top:1px solid #f1f5f9;"><span style="display:inline-block;padding:5px 12px;border-radius:999px;background:#e0f2fe;color:#075985;font-weight:700;font-size:12px;text-transform:uppercase;letter-spacing:0.1em;">${escapeHtml(item?.status || "pending")}</span></td>
+      </tr>
+      ${
+        item?.customerRequest?.email
+          ? `<tr><td style="padding:14px 0;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.14em;color:#94a3b8;border-top:1px solid #f1f5f9;">Notify</td><td align="right" style="padding:14px 0;font-size:14px;color:#0284c7;border-top:1px solid #f1f5f9;">${escapeHtml(item.customerRequest.email)}</td></tr>`
+          : ""
+      }
+    </table>
+    ${
+      matchedInventory
+        ? `<div style="background:#ecfdf5;border-left:3px solid #16a34a;border-radius:0 8px 8px 0;padding:14px 18px;margin:0 0 22px;">
+            <p style="margin:0 0 4px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.12em;color:#047857;">In stock</p>
+            <p style="margin:0;font-size:15px;color:#064e3b;font-weight:700;">${escapeHtml(matchedInventory.name || matchedInventory.itemNumber || "")}</p>
+          </div>`
+        : ""
+    }
+    <p style="margin:18px 0 0;font-size:13px;color:#94a3b8;">Triggered by ${escapeHtml(actor || "staff")}.</p>
+  `;
+  return brandedShell({
+    eyebrow: "Parts list",
+    headlineHtml: `Item ${escapeHtml(verb)} the list`,
+    headlineSubHtml: escapeHtml(item?.title || ""),
+    innerHtml,
+    ctaHtml: ctaButton({ href: `${publicSiteUrl()}/admin/grocery-list`, label: "Open grocery list" }),
+    footerNote: "Internal notification — only admins receive this.",
+  });
+}
+
 /**
  * Internal admin notification when grocery list is updated.
  * action ∈ "added" | "updated" | "removed" | "matched"
@@ -484,50 +612,9 @@ async function sendReceiptUpdateEmail({
 async function sendAdminGroceryNotification({ action, item, actor, matchedInventory }) {
   const target = adminEmail();
   if (!target) return { sent: false, reason: "no-admin-email" };
-  const shop = storeName();
-
-  const verb = {
-    added: "added to",
-    updated: "updated on",
-    removed: "removed from",
-    matched: "matched on",
-  }[action] || "changed on";
-
+  const verb = GROCERY_VERBS[action] || "changed on";
   const subject = `[Grocery] ${item?.title || "Untitled"} ${verb} the parts list`;
-
-  const innerHtml = `
-    <p style="margin:0 0 14px;font-size:14px;color:#334155;">A line on the parts / grocery list was just <strong>${escapeHtml(verb)}</strong> the list at ${escapeHtml(shop)}.</p>
-    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f8fafc;border-radius:12px;border:1px solid #e2e8f0;margin-bottom:16px;">
-      <tr><td style="padding:14px 18px;font-size:14px;color:#0f172a;">
-        <div style="font-weight:700;font-size:15px;">${escapeHtml(item?.title || "(no title)")}</div>
-        ${item?.notes ? `<div style="margin-top:6px;color:#475569;font-size:13px;">${escapeHtml(item.notes)}</div>` : ""}
-        <div style="margin-top:10px;font-family:ui-monospace,Consolas,monospace;color:#64748b;font-size:12px;">
-          ${item?.matchBarcode ? `barcode: ${escapeHtml(item.matchBarcode)}<br/>` : ""}
-          ${item?.matchItemNumber ? `item #: ${escapeHtml(item.matchItemNumber)}<br/>` : ""}
-          status: ${escapeHtml(item?.status || "pending")}
-        </div>
-        ${item?.customerRequest?.email ? `<div style="margin-top:10px;font-size:12px;color:#0284c7;">notify customer at ${escapeHtml(item.customerRequest.email)}</div>` : ""}
-      </td></tr>
-    </table>
-    ${
-      matchedInventory
-        ? `<div style="background:#ecfdf5;border:1px solid #a7f3d0;border-radius:12px;padding:14px 18px;margin-bottom:16px;">
-            <p style="margin:0 0 6px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:#047857;">In stock</p>
-            <p style="margin:0;font-size:14px;color:#064e3b;font-weight:600;">${escapeHtml(matchedInventory.name || matchedInventory.itemNumber || "")}</p>
-          </div>`
-        : ""
-    }
-    <p style="margin:0;font-size:12px;color:#94a3b8;">Triggered by ${escapeHtml(actor || "staff")}.</p>
-  `;
-
-  const html = brandedShell({
-    headlineHtml: "Grocery list activity",
-    headlineSubHtml: `${escapeHtml(item?.title || "(no title)")} — ${escapeHtml(verb)} the list`,
-    innerHtml,
-    ctaHtml: ctaButton({ href: `${publicSiteUrl()}/admin/grocery-list`, label: "Open grocery list" }),
-    footerNote: "Internal notification — only admins receive this.",
-  });
-
+  const html = buildAdminGroceryHtml({ action, item, actor, matchedInventory });
   const text = [
     `Grocery list activity (${verb}):`,
     `Title: ${item?.title || "(no title)"}`,
@@ -538,7 +625,6 @@ async function sendAdminGroceryNotification({ action, item, actor, matchedInvent
     matchedInventory ? `Now in stock: ${matchedInventory.name || matchedInventory.itemNumber || ""}` : "",
     `Actor: ${actor || "staff"}`,
   ].filter(Boolean).join("\n");
-
   return sendMail({ to: target, subject, text, html });
 }
 
@@ -548,6 +634,10 @@ module.exports = {
   sendReceiptConfirmationEmail,
   sendReceiptUpdateEmail,
   sendAdminGroceryNotification,
+  buildReceiptConfirmationHtml,
+  buildReceiptUpdateHtml,
+  buildStockNotificationHtml,
+  buildAdminGroceryHtml,
   publicSiteUrl,
   logoUrl,
   storeName,
