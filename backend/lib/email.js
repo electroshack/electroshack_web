@@ -56,12 +56,11 @@ function publicSiteUrl() {
 }
 
 /**
- * Public, hot-linkable Electroshack logo (served from the live frontend).
- * Override with EMAIL_LOGO_URL when running on a non-production deploy so
- * customer mail still embeds a real image.
+ * Same wide hero mark as the website navbar (`hero_logo2.png`), exposed at a
+ * stable URL on the static host for email clients. Override with EMAIL_LOGO_URL.
  */
 function logoUrl() {
-  return process.env.EMAIL_LOGO_URL || `${publicSiteUrl()}/favicon.png`;
+  return process.env.EMAIL_LOGO_URL || `${publicSiteUrl()}/email-hero-logo.png`;
 }
 
 function adminEmail() {
@@ -73,8 +72,10 @@ function storeName() {
 }
 
 /**
- * Wraps inner HTML in the brand chrome (logo header, footer with phone/address).
+ * Wraps inner HTML in the brand chrome (centered hero logo + headline, footer).
  * Uses inline styles only — most mail clients strip <style> blocks.
+ * Logo + title share one table row so there is no large blank strip between them
+ * and the white body (a common complaint with stacked header rows).
  */
 function brandedShell({ headlineHtml, headlineSubHtml = "", innerHtml, ctaHtml = "", footerNote = "" }) {
   const shop = storeName();
@@ -84,35 +85,21 @@ function brandedShell({ headlineHtml, headlineSubHtml = "", innerHtml, ctaHtml =
 <html>
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1" /><title>${escapeHtml(shop)}</title></head>
 <body style="margin:0;padding:0;background:#f1f5f9;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;color:#0f172a;">
-  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f1f5f9;padding:32px 16px;">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f1f5f9;padding:20px 12px;">
     <tr>
       <td align="center">
         <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:560px;background:#ffffff;border-radius:18px;overflow:hidden;border:1px solid #e2e8f0;box-shadow:0 8px 28px rgba(15,23,42,0.06);">
-          <!-- Header -->
+          <!-- Centered hero logo + headline (single block, no spacer row) -->
           <tr>
-            <td style="background:#0f172a;padding:22px 28px;text-align:left;">
-              <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
-                <tr>
-                  <td valign="middle" style="padding:0;">
-                    <img src="${escapeHtml(logo)}" alt="${escapeHtml(shop)}" width="44" height="44" style="display:block;border-radius:8px;background:#ffffff;padding:4px;" />
-                  </td>
-                  <td valign="middle" align="right" style="padding:0;color:#facc15;font-weight:700;letter-spacing:0.18em;font-size:11px;text-transform:uppercase;">
-                    ${escapeHtml(shop)}
-                  </td>
-                </tr>
-              </table>
-            </td>
-          </tr>
-          <!-- Hero -->
-          <tr>
-            <td style="background:linear-gradient(135deg,#0ea5e9,#38bdf8);padding:26px 28px 24px;color:#ffffff;">
-              <h1 style="margin:0;font-size:22px;font-weight:800;letter-spacing:-0.02em;line-height:1.25;color:#ffffff;">${headlineHtml}</h1>
-              ${headlineSubHtml ? `<p style="margin:8px 0 0;font-size:14px;line-height:1.45;color:rgba(255,255,255,0.92);">${headlineSubHtml}</p>` : ""}
+            <td style="background:linear-gradient(180deg,#0f172a 0%,#0c4a6e 55%,#0369a1 100%);padding:14px 24px 16px;text-align:center;">
+              <img src="${escapeHtml(logo)}" alt="${escapeHtml(shop)}" width="280" style="display:block;margin:0 auto;max-width:92%;width:280px;height:auto;border:0;outline:none;text-decoration:none;" />
+              <h1 style="margin:10px 0 0;padding:0;font-size:20px;font-weight:800;letter-spacing:-0.02em;line-height:1.25;color:#ffffff;">${headlineHtml}</h1>
+              ${headlineSubHtml ? `<p style="margin:6px 0 0;padding:0;font-size:14px;line-height:1.45;color:rgba(255,255,255,0.92);">${headlineSubHtml}</p>` : ""}
             </td>
           </tr>
           <!-- Body -->
           <tr>
-            <td style="padding:24px 28px 8px;">${innerHtml}</td>
+            <td style="padding:16px 24px 10px;">${innerHtml}</td>
           </tr>
           ${ctaHtml ? `<tr><td align="center" style="padding:8px 28px 24px;">${ctaHtml}</td></tr>` : ""}
           <!-- Footer -->
