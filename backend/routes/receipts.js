@@ -46,19 +46,28 @@ router.post("/", auth, async (req, res) => {
     const receipt = new Receipt(body);
     await receipt.save();
 
+    let emailNotify = null;
     if (kind === "standard" && receipt.customerEmail && String(receipt.customerEmail).trim()) {
       const trackUrl = `${publicTicketBaseUrl()}`;
-      void sendReceiptConfirmationEmail({
-        to: receipt.customerEmail,
-        customerName: receipt.customerName,
-        receiptNumber: receipt.receiptNumber,
-        trackUrl,
-        priceEstimate: receipt.priceEstimate,
-        items: receipt.items,
-      }).catch((e) => console.error("[receipt] confirmation email:", e?.message || e));
+      try {
+        emailNotify = await sendReceiptConfirmationEmail({
+          to: receipt.customerEmail,
+          customerName: receipt.customerName,
+          receiptNumber: receipt.receiptNumber,
+          trackUrl,
+          priceEstimate: receipt.priceEstimate,
+          items: receipt.items,
+        });
+      } catch (e) {
+        emailNotify = { sent: false, reason: e?.message || String(e) };
+        console.error("[receipt] confirmation email crashed:", emailNotify.reason);
+      }
+      if (!emailNotify?.sent) {
+        console.warn("[receipt] confirmation email skipped:", emailNotify?.reason || emailNotify);
+      }
     }
 
-    res.status(201).json(receipt);
+    res.status(201).json(emailNotify ? { ...receipt.toObject(), emailNotify } : receipt);
   } catch (err) {
     if (err.code === 11000) {
       return res.status(400).json({ error: "Receipt number already exists." });
@@ -179,20 +188,29 @@ router.put("/:id", auth, async (req, res) => {
       runValidators: true,
     });
 
+    let emailNotify = null;
     if (notifyCustomer && receipt?.customerEmail && String(receipt.customerEmail).trim()) {
       const trackUrl = `${publicTicketBaseUrl()}`;
-      void sendReceiptUpdateEmail({
-        to: receipt.customerEmail,
-        customerName: receipt.customerName,
-        receiptNumber: receipt.receiptNumber,
-        status: receipt.status,
-        message: updateMessage,
-        trackUrl,
-        priceEstimate: receipt.priceEstimate,
-      }).catch((e) => console.error("[receipt] update email:", e?.message || e));
+      try {
+        emailNotify = await sendReceiptUpdateEmail({
+          to: receipt.customerEmail,
+          customerName: receipt.customerName,
+          receiptNumber: receipt.receiptNumber,
+          status: receipt.status,
+          message: updateMessage,
+          trackUrl,
+          priceEstimate: receipt.priceEstimate,
+        });
+      } catch (e) {
+        emailNotify = { sent: false, reason: e?.message || String(e) };
+        console.error("[receipt] update email crashed:", emailNotify.reason);
+      }
+      if (!emailNotify?.sent) {
+        console.warn("[receipt] update email skipped:", emailNotify?.reason || emailNotify);
+      }
     }
 
-    res.json(receipt);
+    res.json(emailNotify ? { ...receipt.toObject(), emailNotify } : receipt);
   } catch (err) {
     res.status(400).json({ error: err.message });
   }
@@ -214,20 +232,29 @@ router.post("/:id/update", auth, async (req, res) => {
 
     await receipt.save();
 
+    let emailNotify = null;
     if (req.body.notifyCustomer && receipt.customerEmail && String(receipt.customerEmail).trim()) {
       const trackUrl = `${publicTicketBaseUrl()}`;
-      void sendReceiptUpdateEmail({
-        to: receipt.customerEmail,
-        customerName: receipt.customerName,
-        receiptNumber: receipt.receiptNumber,
-        status: receipt.status,
-        message,
-        trackUrl,
-        priceEstimate: receipt.priceEstimate,
-      }).catch((e) => console.error("[receipt] update email:", e?.message || e));
+      try {
+        emailNotify = await sendReceiptUpdateEmail({
+          to: receipt.customerEmail,
+          customerName: receipt.customerName,
+          receiptNumber: receipt.receiptNumber,
+          status: receipt.status,
+          message,
+          trackUrl,
+          priceEstimate: receipt.priceEstimate,
+        });
+      } catch (e) {
+        emailNotify = { sent: false, reason: e?.message || String(e) };
+        console.error("[receipt] update email crashed:", emailNotify.reason);
+      }
+      if (!emailNotify?.sent) {
+        console.warn("[receipt] update email skipped:", emailNotify?.reason || emailNotify);
+      }
     }
 
-    res.json(receipt);
+    res.json(emailNotify ? { ...receipt.toObject(), emailNotify } : receipt);
   } catch (err) {
     res.status(400).json({ error: err.message });
   }

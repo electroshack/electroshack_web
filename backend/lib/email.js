@@ -1,4 +1,5 @@
 const nodemailer = require("nodemailer");
+const dns = require("dns").promises;
 
 function escapeHtml(s) {
   return String(s == null ? "" : s)
@@ -16,39 +17,55 @@ function fmtMoney(n) {
 
 let transporterPromise;
 
-function getTransporter() {
-  if (transporterPromise) return transporterPromise;
+/**
+ * Render's free tier has no outbound IPv6. Pre-resolve the SMTP host to an
+ * IPv4 address (A record) and pass the literal IP to nodemailer with
+ * `tls.servername` for SNI. Without this, Node opens an IPv6 socket and
+ * fails with `ENETUNREACH 2603:1036:...:587 - Local (:::0)`.
+ */
+async function resolveIPv4(host) {
+  try {
+    const r = await dns.lookup(host, { family: 4 });
+    return r?.address || host;
+  } catch (e) {
+    console.warn("[email] dns.lookup ipv4 failed for", host, "-", e?.message || e);
+    return host;
+  }
+}
+
+async function buildTransport() {
   const host = process.env.SMTP_HOST || process.env.EMAIL_HOST;
   const port = parseInt(process.env.SMTP_PORT || process.env.EMAIL_PORT || "587", 10);
   const user = process.env.SMTP_USER || process.env.EMAIL_USER;
   const pass = process.env.SMTP_PASS || process.env.EMAIL_PASS;
   const secure = process.env.SMTP_SECURE === "true" || port === 465;
 
-  if (!host || !user) {
-    transporterPromise = Promise.resolve(null);
-    return transporterPromise;
-  }
+  if (!host || !user) return null;
 
-  /**
-   * Force IPv4 for the SMTP socket. Render's free tier has no outbound IPv6,
-   * and Node's DNS resolver returns AAAA records for `smtp.office365.com`,
-   * causing `ENETUNREACH 2603:1036:...:587`. `family: 4` makes the transport
-   * pick the A record only.
-   */
-  transporterPromise = Promise.resolve(
-    nodemailer.createTransport({
-      host,
-      port,
-      secure,
-      auth: { user, pass },
-      requireTLS: !secure,
-      family: 4,
-      tls: { servername: host },
-      connectionTimeout: 15_000,
-      greetingTimeout: 15_000,
-      socketTimeout: 22_000,
-    })
-  );
+  const ipv4 = await resolveIPv4(host);
+  console.log(`[email] SMTP transport: ${host} -> ${ipv4}:${port} (secure=${secure})`);
+  return nodemailer.createTransport({
+    host: ipv4,
+    port,
+    secure,
+    auth: { user, pass },
+    requireTLS: !secure,
+    family: 4,
+    tls: { servername: host, minVersion: "TLSv1.2" },
+    connectionTimeout: 15_000,
+    greetingTimeout: 15_000,
+    socketTimeout: 22_000,
+  });
+}
+
+function getTransporter() {
+  if (!transporterPromise) {
+    transporterPromise = buildTransport().catch((e) => {
+      console.error("[email] transporter init failed:", e?.message || e);
+      transporterPromise = null;
+      return null;
+    });
+  }
   return transporterPromise;
 }
 
