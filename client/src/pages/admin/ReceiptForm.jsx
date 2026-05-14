@@ -290,9 +290,6 @@ export default function ReceiptForm() {
             <h2 className="text-lg font-semibold text-dark-900">
               {isEdit ? "Edit quote" : isLegacyNew ? "Paper / old quote" : "New quote"}
             </h2>
-            <span className="text-[10px] uppercase tracking-[0.18em] font-bold text-amber-700 bg-amber-100 border border-amber-300 px-2 py-0.5 rounded-full">
-              No taxes — quote only
-            </span>
             {isEdit && (
               <button onClick={handleDelete} className="ml-auto flex items-center gap-1 text-sm text-red-500 hover:text-red-600 transition-colors">
                 <Trash2 size={14} /> Delete
@@ -516,11 +513,7 @@ export default function ReceiptForm() {
 
                   {/* Totals */}
                   <div className="grid grid-cols-12 gap-2 mt-4 pt-3 border-t-2 border-amber-800/20">
-                    <div className="col-span-7 flex items-end">
-                      <p className="text-[10px] text-amber-800/55 italic max-w-xs">
-                        Quotes only — taxes are not collected or stored. Override the total below if labour, parts, or trade-in adjust the quote.
-                      </p>
-                    </div>
+                    <div className="col-span-7" />
                     <div className="col-span-5 space-y-1">
                       <div className="flex justify-between text-xs">
                         <span className="text-amber-800/60 font-bold uppercase">Items total</span>

@@ -683,7 +683,7 @@ export default function InventoryForm() {
 
             {/* Photos for storefront */}
             <div className="rounded-2xl border border-gray-100 bg-white p-5 sm:p-6 shadow-sm">
-              <InventoryImageUploader value={form.images || []} onChange={handleImagesChange} />
+              <InventoryImageUploader value={form.images || []} onChange={handleImagesChange} max={1} />
             </div>
 
             {/* Pricing row */}

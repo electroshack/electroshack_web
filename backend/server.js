@@ -1,11 +1,15 @@
 require("dotenv").config();
 const dns = require("dns");
-// Some local resolvers (Windows / corporate networks) drop SRV lookups for
-// MongoDB Atlas's `mongodb+srv://` URIs. Allow an override list of upstream
-// servers for the dev box without changing prod, where defaults are fine.
 if (process.env.DNS_SERVERS) {
   const list = process.env.DNS_SERVERS.split(",").map((s) => s.trim()).filter(Boolean);
   if (list.length) dns.setServers(list);
+}
+/**
+ * Render's free tier has no outbound IPv6. Without this, anything that
+ * resolves AAAA before A (e.g. `smtp.office365.com`) fails with ENETUNREACH.
+ */
+if (typeof dns.setDefaultResultOrder === "function") {
+  dns.setDefaultResultOrder("ipv4first");
 }
 const express = require("express");
 const mongoose = require("mongoose");

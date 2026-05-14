@@ -64,7 +64,7 @@ function isUrl(s) {
   return /^https?:\/\//i.test(String(s || "").trim());
 }
 
-export default function InventoryImageUploader({ value = [], onChange, max = 4 }) {
+export default function InventoryImageUploader({ value = [], onChange, max = 1 }) {
   const [busy, setBusy] = useState(false);
   const [urlInput, setUrlInput] = useState("");
   const inputRef = useRef(null);
@@ -144,14 +144,16 @@ export default function InventoryImageUploader({ value = [], onChange, max = 4 }
       <div className="flex items-center justify-between mb-2">
         <p className="text-sm font-medium text-gray-600 flex items-center gap-1.5">
           <ImageIcon size={14} className="text-primary-500" />
-          Photos for storefront
+          {max === 1 ? "Storefront photo" : "Photos for storefront"}
         </p>
         <p className="text-[11px] text-gray-400">
-          Up to {max} · auto-resized to {TARGET_SIZE}×{TARGET_SIZE} on a white background
+          {max === 1
+            ? `Auto-resized to ${TARGET_SIZE}×${TARGET_SIZE} on a white background`
+            : `Up to ${max} · auto-resized to ${TARGET_SIZE}×${TARGET_SIZE} on a white background`}
         </p>
       </div>
 
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-3">
+      <div className={`grid gap-3 mb-3 ${max === 1 ? "grid-cols-1 max-w-xs" : "grid-cols-2 sm:grid-cols-4"}`}>
         {slots.map((src, idx) =>
           src ? (
             <div key={idx} className="group relative aspect-square rounded-xl overflow-hidden border border-gray-200 bg-gray-50">
@@ -164,7 +166,7 @@ export default function InventoryImageUploader({ value = [], onChange, max = 4 }
               >
                 <X size={14} />
               </button>
-              {idx === 0 && (
+              {idx === 0 && max > 1 && (
                 <span className="absolute bottom-1.5 left-1.5 text-[9px] font-bold uppercase tracking-wider bg-primary-500 text-white px-1.5 py-0.5 rounded">
                   Cover
                 </span>

@@ -29,6 +29,12 @@ function getTransporter() {
     return transporterPromise;
   }
 
+  /**
+   * Force IPv4 for the SMTP socket. Render's free tier has no outbound IPv6,
+   * and Node's DNS resolver returns AAAA records for `smtp.office365.com`,
+   * causing `ENETUNREACH 2603:1036:...:587`. `family: 4` makes the transport
+   * pick the A record only.
+   */
   transporterPromise = Promise.resolve(
     nodemailer.createTransport({
       host,
@@ -36,6 +42,8 @@ function getTransporter() {
       secure,
       auth: { user, pass },
       requireTLS: !secure,
+      family: 4,
+      tls: { servername: host },
       connectionTimeout: 15_000,
       greetingTimeout: 15_000,
       socketTimeout: 22_000,
