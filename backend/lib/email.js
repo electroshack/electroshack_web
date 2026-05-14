@@ -194,15 +194,59 @@ function ctaButton({ href, label, color = "#22c55e" }) {
 }
 
 /**
- * @returns {{ sent: boolean, reason?: string, messageId?: string }}
+ * Send via Resend's HTTPS API. Render's free tier blocks outbound SMTP ports
+ * (25/465/587), so SMTP is unusable there. When `RESEND_API_KEY` is set, we
+ * post to Resend instead. Sender (`from`) defaults to `EMAIL_FROM`/`SMTP_FROM`
+ * but can be overridden with `RESEND_FROM` (handy while a custom domain is
+ * still being verified — use `Electroshack <onboarding@resend.dev>`).
+ */
+async function sendViaResend({ to, subject, text, html, replyTo }) {
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey) return null;
+  const from = process.env.RESEND_FROM || fromAddress();
+  const body = {
+    from,
+    to: [String(to).trim()],
+    subject,
+    text,
+    html: html || `<p>${text}</p>`,
+  };
+  if (replyTo || adminEmail()) body.reply_to = replyTo || adminEmail();
+  try {
+    const res = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
+    });
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      console.error("[email] resend failed:", res.status, json?.message || json);
+      return { sent: false, reason: json?.message || `resend ${res.status}` };
+    }
+    return { sent: true, messageId: json?.id || "resend", via: "resend" };
+  } catch (e) {
+    console.error("[email] resend crashed:", e?.message || e);
+    return { sent: false, reason: e?.message || String(e) };
+  }
+}
+
+/**
+ * @returns {{ sent: boolean, reason?: string, messageId?: string, via?: string }}
  */
 async function sendMail({ to, subject, text, html, replyTo }) {
   if (!to || !String(to).trim()) {
     return { sent: false, reason: "no-recipient" };
   }
+  if (process.env.RESEND_API_KEY) {
+    const r = await sendViaResend({ to, subject, text, html, replyTo });
+    if (r) return r;
+  }
   const transport = await getTransporter();
   if (!transport) {
-    console.warn("[email] SMTP not configured (set SMTP_HOST / EMAIL_HOST and credentials); skipping send.");
+    console.warn("[email] no transport (set RESEND_API_KEY for HTTPS, or SMTP_HOST / EMAIL_HOST + creds); skipping send.");
     return { sent: false, reason: "smtp-not-configured" };
   }
   try {
@@ -214,7 +258,7 @@ async function sendMail({ to, subject, text, html, replyTo }) {
       html: html || `<p>${text}</p>`,
       replyTo: replyTo || adminEmail() || undefined,
     });
-    return { sent: true, messageId: info?.messageId };
+    return { sent: true, messageId: info?.messageId, via: "smtp" };
   } catch (e) {
     console.error("[email] send failed:", e.message);
     return { sent: false, reason: e.message };
