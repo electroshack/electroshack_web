@@ -4,22 +4,25 @@ const { auth } = require("../middleware/auth");
 const { sendAdminGroceryNotification } = require("../lib/email");
 const router = express.Router();
 
-function notifyAsync(payload) {
-  void sendAdminGroceryNotification(payload)
-    .then((r) => {
-      if (!r?.sent) {
-        console.warn("[grocery] admin notify skipped:", r?.reason || r);
-      }
-    })
-    .catch((e) => console.error("[grocery] admin notify failed:", e?.message || e));
-}
-
 router.post("/", auth, async (req, res) => {
   try {
     const row = new GroceryItem(req.body);
     await row.save();
-    notifyAsync({ action: "added", item: row.toObject(), actor: req.user?.username });
-    res.status(201).json(row);
+    let emailNotify = { sent: false, reason: "not-attempted" };
+    try {
+      emailNotify = await sendAdminGroceryNotification({
+        action: "added",
+        item: row.toObject(),
+        actor: req.user?.username,
+      });
+    } catch (e) {
+      emailNotify = { sent: false, reason: e?.message || String(e) };
+      console.error("[grocery] admin notify crashed (POST):", emailNotify.reason);
+    }
+    if (!emailNotify?.sent) {
+      console.warn("[grocery] admin notify skipped (POST):", emailNotify?.reason || emailNotify);
+    }
+    res.status(201).json({ ...row.toObject(), emailNotify });
   } catch (err) {
     res.status(400).json({ error: err.message });
   }
@@ -41,8 +44,21 @@ router.put("/:id", auth, async (req, res) => {
   try {
     const item = await GroceryItem.findByIdAndUpdate(req.params.id, req.body, { new: true, runValidators: true });
     if (!item) return res.status(404).json({ error: "Not found." });
-    notifyAsync({ action: "updated", item: item.toObject(), actor: req.user?.username });
-    res.json(item);
+    let emailNotify = { sent: false, reason: "not-attempted" };
+    try {
+      emailNotify = await sendAdminGroceryNotification({
+        action: "updated",
+        item: item.toObject(),
+        actor: req.user?.username,
+      });
+    } catch (e) {
+      emailNotify = { sent: false, reason: e?.message || String(e) };
+      console.error("[grocery] admin notify crashed (PUT):", emailNotify.reason);
+    }
+    if (!emailNotify?.sent) {
+      console.warn("[grocery] admin notify skipped (PUT):", emailNotify?.reason || emailNotify);
+    }
+    res.json({ ...item.toObject(), emailNotify });
   } catch (err) {
     res.status(400).json({ error: err.message });
   }
@@ -52,8 +68,21 @@ router.delete("/:id", auth, async (req, res) => {
   try {
     const item = await GroceryItem.findByIdAndDelete(req.params.id);
     if (!item) return res.status(404).json({ error: "Not found." });
-    notifyAsync({ action: "removed", item: item.toObject(), actor: req.user?.username });
-    res.json({ message: "Deleted." });
+    let emailNotify = { sent: false, reason: "not-attempted" };
+    try {
+      emailNotify = await sendAdminGroceryNotification({
+        action: "removed",
+        item: item.toObject(),
+        actor: req.user?.username,
+      });
+    } catch (e) {
+      emailNotify = { sent: false, reason: e?.message || String(e) };
+      console.error("[grocery] admin notify crashed (DELETE):", emailNotify.reason);
+    }
+    if (!emailNotify?.sent) {
+      console.warn("[grocery] admin notify skipped (DELETE):", emailNotify?.reason || emailNotify);
+    }
+    res.json({ message: "Deleted.", emailNotify });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

@@ -35,11 +35,15 @@ export default function GroceryList() {
       return;
     }
     try {
-      await API.post("/grocery-list", {
+      const res = await API.post("/grocery-list", {
         ...form,
         status: "pending",
       });
+      const n = res.data?.emailNotify;
       toast.success("Item added.");
+      if (n && !n.sent) {
+        toast.error(`Grocery alert email failed: ${n.reason || "unknown"}`, { duration: 9000 });
+      }
       setForm(emptyForm);
       load();
     } catch (err) {
@@ -49,8 +53,12 @@ export default function GroceryList() {
 
   const setStatus = async (id, status) => {
     try {
-      await API.put(`/grocery-list/${id}`, { status });
+      const res = await API.put(`/grocery-list/${id}`, { status });
       load();
+      const n = res.data?.emailNotify;
+      if (n && !n.sent && n.reason) {
+        toast.error(`Status saved, but grocery email failed: ${n.reason}`, { duration: 8000 });
+      }
     } catch {
       toast.error("Could not update.");
     }

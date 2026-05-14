@@ -36,6 +36,9 @@ function getTransporter() {
       secure,
       auth: { user, pass },
       requireTLS: !secure,
+      connectionTimeout: 15_000,
+      greetingTimeout: 15_000,
+      socketTimeout: 22_000,
     })
   );
   return transporterPromise;
@@ -63,14 +66,18 @@ function logoUrl() {
   return process.env.EMAIL_LOGO_URL || `${publicSiteUrl()}/email-hero-logo.png`;
 }
 
-/** Extract `addr` from RFC-style `Display Name <addr>` or a plain address string. */
+/** Extract first email from RFC-style From header or loose text (handles stray quotes). */
 function bareEmailFromHeader(val) {
   if (!val || typeof val !== "string") return "";
-  const t = val.trim();
-  const angle = t.match(/<([^>@\s]+@[^>\s]+)>/);
-  if (angle) return angle[1].trim();
-  if (/^\S+@\S+\.\S+$/.test(t)) return t;
-  return "";
+  const t = val.trim().replace(/^["']+|["']+$/g, "");
+  const innerAngle = t.match(/<([\s\S]*?)>/);
+  if (innerAngle) {
+    const inner = innerAngle[1].trim().replace(/^["']+|["']+$/g, "");
+    const inBrackets = inner.match(/\b([\w.!#$%&'*+/=?^_`{|}~-]+@[\w.-]+\.[A-Za-z]{2,})\b/);
+    if (inBrackets) return inBrackets[1];
+  }
+  const loose = t.match(/\b([\w.!#$%&'*+/=?^_`{|}~-]+@[\w.-]+\.[A-Za-z]{2,})\b/);
+  return loose ? loose[1] : "";
 }
 
 /**
