@@ -34,3 +34,6 @@ yarn-error.log*
 # Misc
 *.zip
 *.tar.gz
+
+client/.vercel/
+

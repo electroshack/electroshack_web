@@ -35,7 +35,13 @@ function getTransporter() {
 }
 
 function fromAddress() {
-  return process.env.SMTP_FROM || process.env.SMTP_USER || process.env.EMAIL_USER || "noreply@electroshack.local";
+  return (
+    process.env.SMTP_FROM ||
+    process.env.EMAIL_FROM ||
+    process.env.SMTP_USER ||
+    process.env.EMAIL_USER ||
+    "noreply@electroshack.local"
+  );
 }
 
 /**

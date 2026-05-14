@@ -1,4 +1,4 @@
-# Electroshack - Store & POS System
+﻿# Electroshack - Store & POS System
 
 A modern web-based storefront and point-of-sale (POS) system for Electroshack, replacing the handwritten receipt system with a digital workflow.
 
@@ -20,24 +20,24 @@ Public storefront, admin dashboard, customer ticket lookup and the digital invoi
 
 ## One-click free deployment
 
-[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/khanayaani/electroshack_web) &nbsp; [![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/khanayaani/electroshack_web&root-directory=client&env=REACT_APP_API_URL&envDescription=URL%20of%20your%20deployed%20backend%2C%20e.g.%20https%3A%2F%2Felectroshack-api.onrender.com%2Fapi)
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/electroshack/electroshack_web) &nbsp; [![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/electroshack/electroshack_web&root-directory=client&env=REACT_APP_API_URL&envDescription=URL%20of%20your%20deployed%20backend%2C%20e.g.%20https%3A%2F%2Felectroshack-api.onrender.com%2Fapi)
 
-1. Click **Deploy to Render** → it reads `render.yaml`, asks for `MONGODB_URI`, `PUBLIC_SITE_URL`, `ADMIN_PASSWORD`. Get the URL it assigns (e.g. `https://electroshack-api.onrender.com`).
-2. Click **Deploy with Vercel** → set **Root Directory** to `client`, set env var `REACT_APP_API_URL` to the Render URL + `/api`. Deploy.
+1. Click **Deploy to Render** â†’ it reads `render.yaml`, asks for `MONGODB_URI`, `PUBLIC_SITE_URL`, `ADMIN_PASSWORD`. Get the URL it assigns (e.g. `https://electroshack-api.onrender.com`).
+2. Click **Deploy with Vercel** â†’ set **Root Directory** to `client`, set env var `REACT_APP_API_URL` to the Render URL + `/api`. Deploy.
 3. Point GoDaddy DNS at both (steps below).
 
 ## Features
 
 ### Customer-Facing
-- **Homepage** — Modern storefront with hero, services, reviews, and brand partners
-- **Services** — Detailed service offerings with process breakdown
-- **Shop** — Browse available inventory items (synced from admin inventory)
-- **Contact** — Google Maps, hours, phone, and contact form
-- **Track Repair** — Customers search by receipt number to see status, updates, and send messages
+- **Homepage** â€” Modern storefront with hero, services, reviews, and brand partners
+- **Services** â€” Detailed service offerings with process breakdown
+- **Shop** â€” Browse available inventory items (synced from admin inventory)
+- **Contact** â€” Google Maps, hours, phone, and contact form
+- **Track Repair** â€” Customers search by receipt number to see status, updates, and send messages
 
 ### Admin Dashboard (POS)
-- **Dashboard** — Stats overview, quick actions, recent receipts
-- **Receipt/Invoice Management** — Full CRUD for digital receipts replacing handwritten invoices
+- **Dashboard** â€” Stats overview, quick actions, recent receipts
+- **Receipt/Invoice Management** â€” Full CRUD for digital receipts replacing handwritten invoices
   - Sequential 6-7 digit receipt numbers (ES-YYYY-######)
   - Customer info (name, phone, email, address)
   - Service categories (repair, accessory, phone/laptop/PC purchase, etc.)
@@ -46,17 +46,17 @@ Public storefront, admin dashboard, customer ticket lookup and the digital invoi
   - Ontario GST 5% + RST 8% tax calculation
   - Legacy receipt mode for digitizing old paper invoices
   - Email confirmation on new receipt (when SMTP configured)
-- **Inventory Management** — Track all items with:
+- **Inventory Management** â€” Track all items with:
   - Auto-assigned item numbers, barcode/IMEI/serial scanning
   - Purchase info (who bought from, date, cost)
   - Sale info (who sold to, date, selling price)
   - Condition tracking (new/refurbished/used/for-parts)
   - Toggle items visible on public storefront
   - External barcode/IMEI hint lookup (TAC database + UPC API)
-- **Grocery List** — Staff wish list with match notifications when inventory arrives
-- **Metrics** — Date-range financial summary + Excel export
-- **Messages** — View and manage contact form submissions
-- **User Management** — Superadmin can create/delete admin users
+- **Grocery List** â€” Staff wish list with match notifications when inventory arrives
+- **Metrics** â€” Date-range financial summary + Excel export
+- **Messages** â€” View and manage contact form submissions
+- **User Management** â€” Superadmin can create/delete admin users
 
 ## Tech Stack
 
@@ -66,9 +66,9 @@ Public storefront, admin dashboard, customer ticket lookup and the digital invoi
 - **Build**: Create React App 5 + CRACO
 
 ## Color Scheme
-- **Primary (Blue)**: `#0787ec` — buttons, accents, links
-- **Accent (Yellow)**: `#facc15` — CTAs, highlights, badges
-- **Dark**: `#212121` — navbar, footer, admin sidebar
+- **Primary (Blue)**: `#0787ec` â€” buttons, accents, links
+- **Accent (Yellow)**: `#facc15` â€” CTAs, highlights, badges
+- **Dark**: `#212121` â€” navbar, footer, admin sidebar
 
 ---
 
@@ -76,7 +76,7 @@ Public storefront, admin dashboard, customer ticket lookup and the digital invoi
 
 ### Prerequisites
 - **Node.js 20+** (LTS recommended)
-- **MongoDB** (optional — uses in-memory DB if not available)
+- **MongoDB** (optional â€” uses in-memory DB if not available)
 
 ### 1. Install dependencies
 
@@ -94,7 +94,7 @@ MONGODB_URI=mongodb://localhost:27017/electroshackDB
 JWT_SECRET=change-this-to-a-long-random-string
 PORT=5000
 
-# Email (optional — receipts still work without it)
+# Email (optional â€” receipts still work without it)
 EMAIL_HOST=smtp.gmail.com
 EMAIL_PORT=587
 EMAIL_USER=your@gmail.com
@@ -113,11 +113,11 @@ ADMIN_PASSWORD=admin123
 ### 3. Start development servers
 
 ```bash
-# Terminal 1 — backend (port 5000)
+# Terminal 1 â€” backend (port 5000)
 cd backend
 npm run dev
 
-# Terminal 2 — frontend (port 3000)
+# Terminal 2 â€” frontend (port 3000)
 cd client
 npm start
 ```
@@ -146,7 +146,7 @@ The CRA dev proxy forwards `/api` requests to the backend automatically.
    cd backend && npm run seed
    ```
 
-### Option B: MongoDB Atlas (Cloud — recommended for production)
+### Option B: MongoDB Atlas (Cloud â€” recommended for production)
 
 1. Create free cluster at https://www.mongodb.com/atlas
 2. Create a database user (username/password)
@@ -155,7 +155,7 @@ The CRA dev proxy forwards `/api` requests to the backend automatically.
    ```
    MONGODB_URI=mongodb+srv://username:password@cluster0.xxxxx.mongodb.net/electroshackDB?retryWrites=true&w=majority
    ```
-5. Start the server — the admin user is auto-created on first boot.
+5. Start the server â€” the admin user is auto-created on first boot.
 
 ### Option C: No MongoDB (Development only)
 
@@ -181,8 +181,8 @@ The fastest free-hosting setup is **MongoDB Atlas (DB) + Render (backend) + Verc
 ### TL;DR
 1. Create a free MongoDB Atlas M0 cluster + database user + 0.0.0.0/0 access list (or your server IP).
 2. Push this repo to GitHub.
-3. Render → "New Blueprint" → point at this repo. The included `render.yaml` provisions the backend automatically. Fill in `MONGODB_URI`, `PUBLIC_SITE_URL`, `ADMIN_PASSWORD`. Wait for the service URL (e.g. `https://electroshack-api.onrender.com`).
-4. Vercel → "Import Project" → repo, root directory `client/`. Set env var `REACT_APP_API_URL=https://electroshack-api.onrender.com/api`. Deploy. Wait for the URL (e.g. `https://electroshack.vercel.app`).
+3. Render â†’ "New Blueprint" â†’ point at this repo. The included `render.yaml` provisions the backend automatically. Fill in `MONGODB_URI`, `PUBLIC_SITE_URL`, `ADMIN_PASSWORD`. Wait for the service URL (e.g. `https://electroshack-api.onrender.com`).
+4. Vercel â†’ "Import Project" â†’ repo, root directory `client/`. Set env var `REACT_APP_API_URL=https://electroshack-api.onrender.com/api`. Deploy. Wait for the URL (e.g. `https://electroshack.vercel.app`).
 5. GoDaddy DNS: point `electroshack.ca` at Vercel and `api.electroshack.ca` at Render (instructions below).
 6. Update Render env `PUBLIC_SITE_URL=https://electroshack.ca`, redeploy. Update Vercel env `REACT_APP_API_URL=https://api.electroshack.ca/api`, redeploy.
 
@@ -195,12 +195,12 @@ The backend is a standard Express server. Deploy to any Node.js host:
 **Render (one-click using `render.yaml`)**:
 
 1. Push this repo to GitHub.
-2. Open https://dashboard.render.com/blueprints → **New Blueprint** → connect this GitHub repo.
+2. Open https://dashboard.render.com/blueprints â†’ **New Blueprint** â†’ connect this GitHub repo.
 3. Render reads `render.yaml`, creates the `electroshack-api` web service, generates a `JWT_SECRET`, and prompts you for the `sync: false` env vars:
-   - `MONGODB_URI` — your Atlas connection string
-   - `PUBLIC_SITE_URL` — your eventual frontend URL (e.g. `https://electroshack.ca`)
-   - `ADMIN_PASSWORD` — initial admin password
-   - SMTP env vars — optional, leave blank to skip email
+   - `MONGODB_URI` â€” your Atlas connection string
+   - `PUBLIC_SITE_URL` â€” your eventual frontend URL (e.g. `https://electroshack.ca`)
+   - `ADMIN_PASSWORD` â€” initial admin password
+   - SMTP env vars â€” optional, leave blank to skip email
 4. Click **Create**. First boot installs dependencies and seeds the admin user.
 5. Health check `/` will respond `{"status":"Electroshack API is running"}`.
 
@@ -236,8 +236,8 @@ REACT_APP_API_URL=https://your-backend-url.com/api npm run build
 
 The `build/` folder is a static SPA. Serve it from:
 
-- **Vercel** (recommended free): Import this repo, set **Root Directory** = `client`. `vercel.json` already pins framework / build / SPA rewrites. Add env var `REACT_APP_API_URL` = `https://<your-render-app>.onrender.com/api` (or your own API domain) under **Settings → Environment Variables**, then **Redeploy**.
-- **Netlify** (alternative free): Connect this repo. `client/netlify.toml` and `client/public/_redirects` are already included. Add env var `REACT_APP_API_URL` under **Site → Build & deploy → Environment**, then trigger a new deploy.
+- **Vercel** (recommended free): Import this repo, set **Root Directory** = `client`. `vercel.json` already pins framework / build / SPA rewrites. Add env var `REACT_APP_API_URL` = `https://<your-render-app>.onrender.com/api` (or your own API domain) under **Settings â†’ Environment Variables**, then **Redeploy**.
+- **Netlify** (alternative free): Connect this repo. `client/netlify.toml` and `client/public/_redirects` are already included. Add env var `REACT_APP_API_URL` under **Site â†’ Build & deploy â†’ Environment**, then trigger a new deploy.
 - **Cloudflare Pages**: build command `cd client && npm install && npm run build`, output `client/build`. Add `REACT_APP_API_URL` under environment variables.
 - **IIS/Azure**: `web.config` for SPA routing is included.
 - **Nginx**: Add `try_files $uri /index.html;` to your server block.
@@ -249,15 +249,15 @@ The `build/` folder is a static SPA. Serve it from:
 
 ## GoDaddy Domain Integration
 
-This app does not use GoDaddy APIs — it just needs DNS pointed correctly.
+This app does not use GoDaddy APIs â€” it just needs DNS pointed correctly.
 
-### If hosting frontend (Vercel) + backend (Render) separately — recommended
+### If hosting frontend (Vercel) + backend (Render) separately â€” recommended
 
-In GoDaddy → **My Products → Domains → electroshack.ca → DNS → Manage Zones**:
+In GoDaddy â†’ **My Products â†’ Domains â†’ electroshack.ca â†’ DNS â†’ Manage Zones**:
 
-1. **Apex / `www` → Vercel (frontend)**
+1. **Apex / `www` â†’ Vercel (frontend)**
 
-   In Vercel: **Settings → Domains** → add `electroshack.ca` and `www.electroshack.ca`. Vercel will print the values it wants.
+   In Vercel: **Settings â†’ Domains** â†’ add `electroshack.ca` and `www.electroshack.ca`. Vercel will print the values it wants.
 
    In GoDaddy DNS, add the records exactly as Vercel asks. Typical pair:
 
@@ -268,9 +268,9 @@ In GoDaddy → **My Products → Domains → electroshack.ca → DNS → Manage 
 
    (Delete any conflicting `Parked` A record on `@` first.)
 
-2. **`api` subdomain → Render (backend)**
+2. **`api` subdomain â†’ Render (backend)**
 
-   In Render: **electroshack-api → Settings → Custom Domains** → add `api.electroshack.ca`. Render will give you the value to point to.
+   In Render: **electroshack-api â†’ Settings â†’ Custom Domains** â†’ add `api.electroshack.ca`. Render will give you the value to point to.
 
    In GoDaddy DNS:
 
@@ -278,11 +278,11 @@ In GoDaddy → **My Products → Domains → electroshack.ca → DNS → Manage 
    |-------|------|--------------------------------------|--------|
    | CNAME | api  | `electroshack-api.onrender.com`      | 1 Hour |
 
-3. **Wait for SSL certificates** to auto-issue (≈1–10 min on Vercel, up to 1 hr on Render).
+3. **Wait for SSL certificates** to auto-issue (â‰ˆ1â€“10 min on Vercel, up to 1 hr on Render).
 
 4. **Reconfigure env vars to use the real domains**:
-   - Vercel → `REACT_APP_API_URL=https://api.electroshack.ca/api`, redeploy.
-   - Render → `PUBLIC_SITE_URL=https://electroshack.ca`, redeploy.
+   - Vercel â†’ `REACT_APP_API_URL=https://api.electroshack.ca/api`, redeploy.
+   - Render â†’ `PUBLIC_SITE_URL=https://electroshack.ca`, redeploy.
 
 ### If hosting both on one server (VPS / DigitalOcean)
 
@@ -381,3 +381,4 @@ cd backend && npm run dev
 | DELETE | `/api/grocery-list/:id` | Yes | Delete item |
 | GET | `/api/metrics` | Yes | Financial summary |
 | GET | `/api/metrics/export.xlsx` | Yes | Excel export |
+

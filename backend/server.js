@@ -1,4 +1,12 @@
 require("dotenv").config();
+const dns = require("dns");
+// Some local resolvers (Windows / corporate networks) drop SRV lookups for
+// MongoDB Atlas's `mongodb+srv://` URIs. Allow an override list of upstream
+// servers for the dev box without changing prod, where defaults are fine.
+if (process.env.DNS_SERVERS) {
+  const list = process.env.DNS_SERVERS.split(",").map((s) => s.trim()).filter(Boolean);
+  if (list.length) dns.setServers(list);
+}
 const express = require("express");
 const mongoose = require("mongoose");
 const cors = require("cors");
@@ -66,9 +74,12 @@ async function startServer() {
   let uri = process.env.MONGODB_URI;
   const { ensureDefaultAdmin } = require("./seedAdmin");
 
+  function redact(u) {
+    try { return new URL(u).host; } catch { return "(unparseable URI)"; }
+  }
   try {
     await mongoose.connect(uri, { serverSelectionTimeoutMS: 5000 });
-    console.log("Connected to MongoDB at", uri);
+    console.log("Connected to MongoDB at", redact(uri));
     await ensureDefaultAdmin();
   } catch (err) {
     console.log("Local MongoDB not available, starting in-memory database...");
