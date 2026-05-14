@@ -84,8 +84,9 @@ function publicSiteUrl() {
 }
 
 /**
- * Same wide hero mark as the website navbar (`hero_logo2.png`), exposed at a
- * stable URL on the static host for email clients. Override with EMAIL_LOGO_URL.
+ * URL of the brand image to use in the header. Falls back to the hero PNG
+ * we host on the storefront. We also render an HTML wordmark next to it so
+ * the header still looks branded when Outlook / Gmail block external images.
  */
 function logoUrl() {
   return process.env.EMAIL_LOGO_URL || `${publicSiteUrl()}/email-hero-logo.png`;
@@ -149,39 +150,46 @@ function brandedShell({ headlineHtml, headlineSubHtml = "", innerHtml, ctaHtml =
   <title>${escapeHtml(shop)}</title>
   <!--[if mso]><noscript><xml><o:OfficeDocumentSettings><o:PixelsPerInch>96</o:PixelsPerInch></o:OfficeDocumentSettings></xml></noscript><![endif]-->
 </head>
-<body style="margin:0;padding:0;background-color:#e2e8f0;color:#0f172a;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;">
-  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" bgcolor="#e2e8f0" style="background-color:#e2e8f0;padding:20px 12px;">
+<body style="margin:0;padding:0;background-color:#eef2f7;color:#0f172a;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;">
+  <div style="display:none;max-height:0;overflow:hidden;mso-hide:all;">${escapeHtml(headlineHtml.replace(/<[^>]+>/g, ""))}</div>
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" bgcolor="#eef2f7" style="background-color:#eef2f7;padding:28px 12px;">
     <tr>
       <td align="center">
-        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" bgcolor="#ffffff" style="max-width:560px;background-color:#ffffff;border-radius:18px;overflow:hidden;border:1px solid #cbd5e1;">
-          <!-- Logo strip: solid dark only (gradient breaks in some light-mode clients) -->
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" bgcolor="#ffffff" style="max-width:560px;background-color:#ffffff;border-radius:16px;overflow:hidden;border:1px solid #d8e0ec;">
+          <!-- Brand bar: HTML wordmark renders even when images are blocked, with the PNG layered on top when allowed. -->
           <tr>
-            <td align="center" bgcolor="#0f172a" style="background-color:#0f172a;padding:14px 24px 14px;text-align:center;">
-              <img src="${escapeHtml(logo)}" alt="${escapeHtml(shop)}" width="280" style="display:block;margin:0 auto;max-width:92%;width:280px;height:auto;border:0;outline:none;text-decoration:none;" />
+            <td align="center" bgcolor="#0f172a" style="background-color:#0f172a;padding:20px 24px 18px;text-align:center;">
+              <a href="${escapeHtml(site)}" style="text-decoration:none;display:inline-block;">
+                <span style="display:inline-block;font-family:'Segoe UI',Roboto,Arial,sans-serif;font-size:26px;font-weight:900;letter-spacing:0.06em;color:#facc15;line-height:1;">ELECTRO<span style="color:#38bdf8;">/</span>SHACK</span>
+              </a>
+              <div style="font-size:0;line-height:0;height:0;">
+                <img src="${escapeHtml(logo)}" alt="" width="220" style="display:block;margin:8px auto 0;max-width:90%;width:220px;height:auto;border:0;outline:none;text-decoration:none;" />
+              </div>
             </td>
           </tr>
-          <!-- Title on true white + dark text (always readable in light & dark app themes) -->
+          <!-- Title row: dark-on-light, always readable -->
           <tr>
-            <td align="center" bgcolor="#ffffff" style="background-color:#ffffff;padding:16px 24px 4px;text-align:center;border-bottom:1px solid #e2e8f0;">
-              <h1 style="margin:0;padding:0;font-size:20px;font-weight:800;letter-spacing:-0.02em;line-height:1.3;color:#0f172a;">${headlineHtml}</h1>
-              ${headlineSubHtml ? `<p style="margin:8px 0 0;padding:0;font-size:14px;line-height:1.45;color:#475569;">${headlineSubHtml}</p>` : ""}
+            <td align="center" bgcolor="#ffffff" style="background-color:#ffffff;padding:22px 28px 6px;text-align:center;">
+              <h1 style="margin:0;padding:0;font-size:21px;font-weight:800;letter-spacing:-0.015em;line-height:1.3;color:#0f172a;">${headlineHtml}</h1>
+              ${headlineSubHtml ? `<p style="margin:8px 0 0;padding:0;font-size:14px;line-height:1.5;color:#64748b;">${headlineSubHtml}</p>` : ""}
             </td>
           </tr>
           <!-- Body -->
           <tr>
-            <td bgcolor="#ffffff" style="background-color:#ffffff;color:#334155;padding:12px 24px 10px;">${innerHtml}</td>
+            <td bgcolor="#ffffff" style="background-color:#ffffff;color:#334155;padding:18px 28px 8px;font-size:15px;line-height:1.6;">${innerHtml}</td>
           </tr>
-          ${ctaHtml ? `<tr><td align="center" bgcolor="#ffffff" style="background-color:#ffffff;padding:8px 24px 20px;">${ctaHtml}</td></tr>` : ""}
+          ${ctaHtml ? `<tr><td align="center" bgcolor="#ffffff" style="background-color:#ffffff;padding:8px 28px 26px;">${ctaHtml}</td></tr>` : ""}
           <!-- Footer -->
           <tr>
-            <td bgcolor="#f1f5f9" style="padding:18px 24px 22px;border-top:1px solid #e2e8f0;background-color:#f1f5f9;text-align:center;font-size:12px;color:#475569;line-height:1.6;">
-              ${footerNote ? `<p style="margin:0 0 8px;color:#334155;">${footerNote}</p>` : ""}
-              <p style="margin:0 0 4px;font-weight:600;color:#0f172a;">${escapeHtml(shop)}</p>
-              <p style="margin:0;color:#475569;">9600 Islington Ave, Woodbridge, ON L4H 2T1 &middot; <a href="tel:9058931613" style="color:#0369a1;text-decoration:none;">(905) 893-1613</a></p>
-              <p style="margin:8px 0 0;"><a href="${escapeHtml(site)}" style="color:#0369a1;text-decoration:none;">${escapeHtml(site.replace(/^https?:\/\//, ""))}</a></p>
+            <td bgcolor="#f8fafc" style="padding:20px 28px 24px;border-top:1px solid #e2e8f0;background-color:#f8fafc;text-align:center;font-size:12px;color:#64748b;line-height:1.65;">
+              ${footerNote ? `<p style="margin:0 0 10px;color:#475569;">${footerNote}</p>` : ""}
+              <p style="margin:0 0 4px;font-weight:700;color:#0f172a;letter-spacing:0.02em;">${escapeHtml(shop)}</p>
+              <p style="margin:0;color:#64748b;">9600 Islington Ave, Woodbridge, ON L4H 2T1 &middot; <a href="tel:9058931613" style="color:#0284c7;text-decoration:none;">(905) 893-1613</a></p>
+              <p style="margin:6px 0 0;"><a href="${escapeHtml(site)}" style="color:#0284c7;text-decoration:none;font-weight:500;">${escapeHtml(site.replace(/^https?:\/\//, ""))}</a></p>
             </td>
           </tr>
         </table>
+        <p style="margin:14px 0 0;font-size:11px;color:#94a3b8;line-height:1.5;">Sent by ${escapeHtml(shop)} &middot; ${escapeHtml(site.replace(/^https?:\/\//, ""))}</p>
       </td>
     </tr>
   </table>
