@@ -2,6 +2,20 @@
 
 A modern web-based storefront and point-of-sale (POS) system for Electroshack, replacing the handwritten receipt system with a digital workflow.
 
+## Live deployment
+
+| Surface | URL |
+| --- | --- |
+| Storefront (production) | https://electroshack.ca |
+| Storefront (Vercel CDN alias) | https://electroshack-web.vercel.app |
+| Backend API (production) | https://api.electroshack.ca |
+| Backend API (Render alias) | https://electroshack-api.onrender.com |
+
+- Frontend: **Vercel** (team `electroshacks-projects`, project `electroshack-web`).
+- Backend: **Render** Web Service (team `My Workspace`, service `electroshack-api`, free plan, oregon region) hooked to `main`.
+- Database: **MongoDB Atlas** cluster `electroshack-cluster`, database `electroshackDB`.
+- DNS: **GoDaddy** for `electroshack.ca` (apex `A` to Vercel, `www` CNAME to Vercel, `api` CNAME to Render; all Microsoft 365 mail records preserved).
+
 ## Screenshots
 
 Public storefront, admin dashboard, customer ticket lookup and the digital invoice form (full set under [`docs/screenshots/`](docs/screenshots/)).
