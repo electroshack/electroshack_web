@@ -1,0 +1,298 @@
+const express = require("express");
+const Receipt = require("../models/Receipt");
+const { auth } = require("../middleware/auth");
+const { nextStandardReceiptNumber, peekNextStandardReceiptNumber, generateLegacyReceiptNumber } = require("../utils/receiptNumbers");
+const { sendReceiptConfirmationEmail } = require("../lib/email");
+const router = express.Router();
+
+function publicTicketBaseUrl() {
+  const base = (process.env.PUBLIC_SITE_URL || process.env.FRONTEND_URL || "http://localhost:3000").replace(/\/$/, "");
+  return `${base}/ticket`;
+}
+
+router.post("/", auth, async (req, res) => {
+  try {
+    const body = { ...req.body };
+    const kind = body.receiptKind === "legacy" ? "legacy" : "standard";
+
+    if (kind === "standard") {
+      body.receiptNumber = await nextStandardReceiptNumber();
+    } else {
+      const manual = body.receiptNumber && String(body.receiptNumber).trim();
+      if (manual) {
+        body.receiptNumber = manual;
+      } else {
+        body.receiptNumber = await generateLegacyReceiptNumber();
+      }
+    }
+    body.receiptKind = kind;
+
+    const receipt = new Receipt(body);
+    await receipt.save();
+
+    if (kind === "standard" && receipt.customerEmail && String(receipt.customerEmail).trim()) {
+      const trackUrl = `${publicTicketBaseUrl()}`;
+      void sendReceiptConfirmationEmail({
+        to: receipt.customerEmail,
+        customerName: receipt.customerName,
+        receiptNumber: receipt.receiptNumber,
+        trackUrl,
+      }).catch((e) => console.error("[receipt] confirmation email:", e?.message || e));
+    }
+
+    res.status(201).json(receipt);
+  } catch (err) {
+    if (err.code === 11000) {
+      return res.status(400).json({ error: "Receipt number already exists." });
+    }
+    res.status(400).json({ error: err.message });
+  }
+});
+
+router.get("/", auth, async (req, res) => {
+  try {
+    const {
+      page = 1,
+      limit = 50,
+      status,
+      search,
+      receiptKind,
+      sortBy = "createdAt",
+      sortOrder = "desc",
+    } = req.query;
+
+    const clauses = [];
+    if (status) clauses.push({ status });
+    if (receiptKind === "legacy") {
+      clauses.push({ receiptKind: "legacy" });
+    } else if (receiptKind === "standard") {
+      clauses.push({ $or: [{ receiptKind: "standard" }, { receiptKind: { $exists: false } }] });
+    }
+    if (search) {
+      clauses.push({
+        $or: [
+          { receiptNumber: { $regex: search, $options: "i" } },
+          { customerName: { $regex: search, $options: "i" } },
+          { customerPhone: { $regex: search, $options: "i" } },
+        ],
+      });
+    }
+    const filter = clauses.length === 0 ? {} : clauses.length === 1 ? clauses[0] : { $and: clauses };
+
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+    const sort = { [sortBy]: sortOrder === "asc" ? 1 : -1 };
+
+    const [receipts, total] = await Promise.all([
+      Receipt.find(filter).sort(sort).skip(skip).limit(parseInt(limit)),
+      Receipt.countDocuments(filter),
+    ]);
+
+    res.json({
+      receipts,
+      total,
+      page: parseInt(page),
+      totalPages: Math.ceil(total / parseInt(limit)),
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.get("/stats", auth, async (req, res) => {
+  try {
+    const [statusCounts, totalRevenue] = await Promise.all([
+      Receipt.aggregate([{ $group: { _id: "$status", count: { $sum: 1 } } }]),
+      Receipt.aggregate([
+        { $match: { status: "completed" } },
+        { $group: { _id: null, total: { $sum: "$finalPrice" } } },
+      ]),
+    ]);
+
+    res.json({
+      statusCounts: statusCounts.reduce((acc, s) => ({ ...acc, [s._id]: s.count }), {}),
+      totalRevenue: totalRevenue[0]?.total || 0,
+      totalReceipts: await Receipt.countDocuments(),
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.get("/preview-new", auth, async (req, res) => {
+  try {
+    const receiptNumber = await peekNextStandardReceiptNumber();
+    const d = new Date();
+    res.json({
+      receiptNumber,
+      date: d.toISOString(),
+      dateInputValue: d.toISOString().split("T")[0],
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.get("/:id", auth, async (req, res) => {
+  try {
+    const receipt = await Receipt.findById(req.params.id);
+    if (!receipt) return res.status(404).json({ error: "Receipt not found." });
+    res.json(receipt);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.put("/:id", auth, async (req, res) => {
+  try {
+    const existing = await Receipt.findById(req.params.id);
+    if (!existing) return res.status(404).json({ error: "Receipt not found." });
+    const body = { ...req.body };
+    body.receiptNumber = existing.receiptNumber;
+    body.receiptKind = existing.receiptKind;
+
+    const receipt = await Receipt.findByIdAndUpdate(req.params.id, body, {
+      new: true,
+      runValidators: true,
+    });
+    res.json(receipt);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+router.post("/:id/update", auth, async (req, res) => {
+  try {
+    const receipt = await Receipt.findById(req.params.id);
+    if (!receipt) return res.status(404).json({ error: "Receipt not found." });
+
+    receipt.updates.push({
+      message: req.body.message,
+      author: req.user.username,
+    });
+
+    if (req.body.status) {
+      receipt.status = req.body.status;
+    }
+
+    await receipt.save();
+    res.json(receipt);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+router.post("/:id/items/:itemId/update", auth, async (req, res) => {
+  try {
+    const receipt = await Receipt.findById(req.params.id);
+    if (!receipt) return res.status(404).json({ error: "Receipt not found." });
+
+    const item = receipt.items.id(req.params.itemId);
+    if (!item) return res.status(404).json({ error: "Item not found." });
+
+    if (req.body.status) item.status = req.body.status;
+    if (req.body.message) {
+      item.updates.push({
+        message: req.body.message,
+        author: req.user.username,
+      });
+    }
+
+    const allStatuses = receipt.items.map((it) => it.status);
+    if (allStatuses.every((s) => s === "completed")) {
+      receipt.status = "completed";
+    } else if (allStatuses.every((s) => ["ready-for-pickup", "customer-called", "completed"].includes(s))) {
+      receipt.status = "ready-for-pickup";
+    } else if (allStatuses.some((s) => s === "in-progress")) {
+      receipt.status = "in-progress";
+    }
+
+    await receipt.save();
+    res.json(receipt);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+router.post("/:id/message", auth, async (req, res) => {
+  try {
+    const receipt = await Receipt.findById(req.params.id);
+    if (!receipt) return res.status(404).json({ error: "Receipt not found." });
+
+    receipt.messages.push({
+      message: req.body.message,
+      sender: "staff",
+    });
+
+    await receipt.save();
+    res.json(receipt);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+router.delete("/:id", auth, async (req, res) => {
+  try {
+    const receipt = await Receipt.findByIdAndDelete(req.params.id);
+    if (!receipt) return res.status(404).json({ error: "Receipt not found." });
+    res.json({ message: "Receipt deleted." });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// PUBLIC: customer ticket lookup
+router.get("/lookup/:receiptNumber", async (req, res) => {
+  try {
+    const receipt = await Receipt.findOne({
+      receiptNumber: req.params.receiptNumber,
+    });
+    if (!receipt) {
+      return res.status(404).json({ error: "Ticket not found. Please check your receipt number." });
+    }
+    res.json({
+      receiptNumber: receipt.receiptNumber,
+      customerName: receipt.customerName,
+      status: receipt.status,
+      date: receipt.date,
+      priceEstimate: receipt.priceEstimate,
+      finalPrice: receipt.finalPrice,
+      gst: receipt.gst,
+      pst: receipt.pst,
+      items: receipt.items.map((it) => ({
+        _id: it._id,
+        description: it.description,
+        category: it.category,
+        price: it.price,
+        status: it.status,
+        updates: it.updates ? [...it.updates] : [],
+      })),
+      updates: receipt.updates,
+      messages: receipt.messages,
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.post("/lookup/:receiptNumber/message", async (req, res) => {
+  try {
+    const receipt = await Receipt.findOne({
+      receiptNumber: req.params.receiptNumber,
+    });
+    if (!receipt) {
+      return res.status(404).json({ error: "Ticket not found." });
+    }
+
+    receipt.messages.push({
+      message: req.body.message,
+      sender: "customer",
+    });
+
+    await receipt.save();
+    res.json({ message: "Message sent successfully." });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+module.exports = router;

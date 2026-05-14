@@ -1,0 +1,2 @@
+# SPA fallback: serve index.html for client routes (e.g. /admin, /login) on Netlify / compatible hosts
+/*    /index.html   200

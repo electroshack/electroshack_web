@@ -1,0 +1,492 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import url("https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&display=swap");
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+  scrollbar-width: thin;
+  /* Allow horizontal paint for carousel streak (was clipping with overflow-x: hidden) */
+  overflow-x: visible;
+}
+
+body {
+  font-family: "Inter", system-ui, sans-serif;
+  width: 100%;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* —— Services carousel: bar train + retract, copy reveal —— */
+.es-carousel-section {
+  --es-cycle-duration: 5s;
+  --es-train-in: 0.78s;
+  --es-bar-retract-duration: 0.5s;
+  /* Copy reveal ends as the train finishes landing */
+  --es-copy-reveal-duration: 0.48s;
+  /* Opaque peek circle: starts when bar is fully gone (left end behind device) */
+  --es-peek-circle-start: calc(var(--es-train-in) + var(--es-bar-retract-duration));
+  --es-peek-circle-duration: 0.45s;
+  /* Donut ring outside filled disc: transparent gap + stroke ≈ half the incoming bar height (1.25rem / 2) */
+  --es-peek-gap: 0.48rem;
+  --es-peek-ring-stroke: 0.48rem;
+  /* Ring follows the inner circle — short stagger so it reads as growing from it */
+  --es-peek-ring-start: calc(var(--es-peek-circle-start) + 0.09s);
+  --es-peek-ring-duration: 0.42s;
+  /* Exit-only: outer ring expands to frame the device, then collapses; clip layer follows as “boolean” */
+  --es-exit-total: 0.96s;
+  /* Section participates in horizontal layout without clipping the train/streak */
+  overflow-x: visible;
+  overflow-y: visible;
+}
+
+@keyframes es-cycle-ticker {
+  from {
+    transform: translateZ(0);
+  }
+  to {
+    transform: translateZ(0);
+  }
+}
+
+@keyframes es-train-enter {
+  0% {
+    transform: translate3d(calc(-50vw - 240px), -50%, 0);
+  }
+  100% {
+    transform: translate3d(-50%, -50%, 0);
+  }
+}
+
+@keyframes es-copy-reveal {
+  0% {
+    opacity: 0;
+    transform: translate3d(2.75rem, 0, 0);
+  }
+  100% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@keyframes es-bar-retract {
+  from {
+    width: 100%;
+  }
+  to {
+    width: 0;
+  }
+}
+
+@keyframes es-peek-circle-grow {
+  0% {
+    transform: translate(-50%, -50%) scale(0);
+    opacity: 0;
+  }
+  10% {
+    opacity: 1;
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes es-peek-ring-grow {
+  0% {
+    transform: translate(-50%, -50%) scale(0);
+    opacity: 0;
+  }
+  12% {
+    opacity: 1;
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 1;
+  }
+}
+
+/* Exit only: ring grows past idle size to visually frame the photo, then scales away with the iris */
+@keyframes es-peek-ring-exit {
+  0% {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 1;
+  }
+  40% {
+    transform: translate(-50%, -50%) scale(var(--es-exit-ring-cover, 1.28));
+    opacity: 1;
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(0);
+    opacity: 1;
+  }
+}
+
+/* Clips image + inner disc + bar to a shrinking circle (synced with ring exit) */
+@keyframes es-carousel-exit-clip {
+  0%,
+  40% {
+    clip-path: circle(150% at 50% 50%);
+  }
+  100% {
+    clip-path: circle(0% at 50% 50%);
+  }
+}
+
+.es-carousel-scene {
+  position: relative;
+  min-height: 0;
+  width: 100%;
+  overflow: visible;
+}
+
+/*
+ * One fixed height for every slide, using the phone column footprint (best balance).
+ * Tablet/laptop art may feel slightly tighter in the frame but the section stays steady.
+ */
+.es-carousel-visual--phone,
+.es-carousel-visual--tablet,
+.es-carousel-visual--laptop {
+  min-height: 18rem;
+}
+
+@media (min-width: 768px) {
+  .es-carousel-visual--phone,
+  .es-carousel-visual--tablet,
+  .es-carousel-visual--laptop {
+    min-height: 21rem;
+  }
+}
+
+.es-carousel-scene-inner--phone,
+.es-carousel-scene-inner--tablet,
+.es-carousel-scene-inner--laptop {
+  min-height: 16rem;
+}
+
+@media (min-width: 768px) {
+  .es-carousel-scene-inner--phone,
+  .es-carousel-scene-inner--tablet,
+  .es-carousel-scene-inner--laptop {
+    min-height: 18.5rem;
+  }
+}
+
+.es-carousel-cycle-ticker {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+  animation: es-cycle-ticker var(--es-cycle-duration) linear infinite;
+  pointer-events: none;
+}
+
+/* Train wraps only the photo box so translate(-50%,-50%) centers the device on the scene */
+.es-carousel-train {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  z-index: 30;
+  will-change: transform;
+}
+
+.es-carousel-train-run {
+  animation: es-train-enter var(--es-train-in) cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+.es-carousel-device-wrap {
+  position: relative;
+  display: inline-block;
+  overflow: visible;
+  isolation: isolate;
+}
+
+/* Distinct silhouettes: phone portrait, tablet, laptop landscape */
+.es-carousel-device-wrap--phone {
+  width: clamp(9.5rem, 34vw, 13.5rem);
+  height: clamp(15.5rem, 46vw, 21rem);
+}
+
+.es-carousel-device-wrap--tablet {
+  width: clamp(13.5rem, 40vw, 18.5rem);
+  height: clamp(13rem, 34vw, 17.5rem);
+}
+
+.es-carousel-device-wrap--laptop {
+  width: clamp(20rem, 62vw, 32rem);
+  height: clamp(12.5rem, 32vw, 16rem);
+}
+
+/* Final circle size tuned so only a thin ring peeks past each device art */
+.es-carousel-device-wrap--phone {
+  --es-peek-diameter: min(132%, 16.75rem);
+  /* Exit expand: ~25% of prior overshoot (was ~2.38 → 1 + 0.38×0.25) */
+  --es-exit-ring-cover: 1.35;
+}
+
+.es-carousel-device-wrap--tablet {
+  --es-peek-diameter: min(118%, 17.5rem);
+  --es-exit-ring-cover: 1.28;
+}
+
+.es-carousel-device-wrap--laptop {
+  --es-peek-diameter: min(104%, 22rem);
+  --es-exit-ring-cover: 1.21;
+}
+
+/* Track sits toward the device; inner bar keeps pill shape (no scaleX squash) */
+.es-carousel-bar-shell {
+  position: absolute;
+  right: 100%;
+  top: 50%;
+  z-index: 0;
+  width: min(46vw, 28rem);
+  height: 1.25rem;
+  transform: translateY(-50%);
+  margin-right: calc(-1 * clamp(2.75rem, 12vw, 6.5rem));
+  pointer-events: none;
+}
+
+.es-carousel-device-wrap--laptop .es-carousel-bar-shell {
+  width: min(58vw, 36rem);
+  margin-right: calc(-1 * clamp(3rem, 14vw, 7rem));
+}
+
+.es-carousel-bar {
+  position: absolute;
+  right: 0;
+  top: 0;
+  /* Full pill — retract uses width (not scaleX) so corners stay round */
+  border-radius: 9999px;
+  height: 100%;
+  width: 100%;
+  background: linear-gradient(90deg, #1e3a8a 0%, #2563eb 54%, #3b82f6 100%);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.12) inset, 0 0 14px rgba(59, 130, 246, 0.35);
+}
+
+.es-carousel-bar-run {
+  animation: es-bar-retract var(--es-bar-retract-duration) cubic-bezier(0.4, 0, 0.15, 1) forwards;
+  animation-delay: var(--es-train-in);
+}
+
+/*
+ * Hollow ring slightly larger than the filled disc: transparent gap in between,
+ * thick stroke (~ half the incoming bar strip height).
+ */
+.es-carousel-peek-ring {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  z-index: 0;
+  box-sizing: border-box;
+  aspect-ratio: 1;
+  width: calc(var(--es-peek-diameter, min(114%, 20rem)) + 2 * var(--es-peek-gap) + 2 * var(--es-peek-ring-stroke));
+  height: auto;
+  border-radius: 50%;
+  background: transparent;
+  border: var(--es-peek-ring-stroke) solid rgba(37, 99, 235, 0.92);
+  pointer-events: none;
+  transform: translate(-50%, -50%) scale(0);
+  opacity: 0;
+  will-change: transform, opacity;
+}
+
+.es-carousel-peek-ring-run {
+  animation: es-peek-ring-grow var(--es-peek-ring-duration) cubic-bezier(0.22, 0.85, 0.28, 1) forwards;
+  animation-delay: var(--es-peek-ring-start);
+}
+
+.es-carousel-peek-ring--exit-active {
+  animation: es-peek-ring-exit var(--es-exit-total) cubic-bezier(0.45, 0.05, 0.2, 1) forwards !important;
+  animation-delay: 0s !important;
+}
+
+.es-carousel-device-stack {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+  clip-path: none;
+}
+
+.es-carousel-device-stack--exit-run {
+  will-change: clip-path;
+  animation: es-carousel-exit-clip var(--es-exit-total) cubic-bezier(0.45, 0.05, 0.2, 1) forwards;
+}
+
+/* Opaque disc on top of the ring center; grows in just before / with the ring */
+.es-carousel-peek-circle {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  z-index: 1;
+  /* One percentage base (device width) + cap; aspect-ratio keeps a true circle */
+  aspect-ratio: 1;
+  width: var(--es-peek-diameter, min(114%, 20rem));
+  height: auto;
+  border-radius: 50%;
+  background: #2563eb;
+  pointer-events: none;
+  transform: translate(-50%, -50%) scale(0);
+  opacity: 0;
+  will-change: transform, opacity;
+}
+
+.es-carousel-peek-circle-run {
+  animation: es-peek-circle-grow var(--es-peek-circle-duration) cubic-bezier(0.22, 0.85, 0.28, 1) forwards;
+  animation-delay: var(--es-peek-circle-start);
+}
+
+.es-carousel-device {
+  position: relative;
+  z-index: auto;
+  display: flex;
+  width: 100%;
+  height: 100%;
+  min-height: 100%;
+  overflow: visible;
+  align-items: center;
+  justify-content: center;
+}
+
+.es-carousel-device > img {
+  position: relative;
+  z-index: 2;
+  /* No accidental clipping mask on raster */
+  overflow: visible;
+  border: none;
+  outline: none;
+  background: transparent;
+}
+
+.es-carousel-copy-wrap {
+  overflow: hidden;
+  width: 100%;
+  max-width: 42rem;
+}
+
+.es-carousel-copy-anim {
+  opacity: 0;
+  will-change: transform, opacity;
+}
+
+.es-carousel-copy-anim-run {
+  animation: es-copy-reveal var(--es-copy-reveal-duration) cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  animation-delay: max(0.05s, calc(var(--es-train-in) - var(--es-copy-reveal-duration)));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .es-carousel-train-run,
+  .es-carousel-copy-anim-run,
+  .es-carousel-bar-run,
+  .es-carousel-peek-ring-run,
+  .es-carousel-cycle-ticker {
+    animation: none !important;
+  }
+
+  .es-carousel-train {
+    transform: translate3d(-50%, -50%, 0) !important;
+  }
+
+  .es-carousel-copy-anim {
+    opacity: 1 !important;
+    transform: none !important;
+  }
+
+  .es-carousel-bar {
+    width: 100% !important;
+    animation: none !important;
+  }
+
+  .es-carousel-peek-circle {
+    opacity: 0 !important;
+    transform: translate(-50%, -50%) scale(0) !important;
+  }
+
+  .es-carousel-peek-ring {
+    opacity: 0 !important;
+    transform: translate(-50%, -50%) scale(0) !important;
+  }
+
+  .es-carousel-device-stack--exit-run {
+    animation: none !important;
+    clip-path: none !important;
+  }
+
+  .es-carousel-peek-ring--exit-active {
+    animation: none !important;
+  }
+
+  button:active .es-admin-scan-burst-ring {
+    animation: none !important;
+  }
+}
+
+/* —— Admin sidebar scan: diameter set inline from measured gap (last nav item → user) × 0.8 —— */
+.es-admin-scan-wrap {
+  position: relative;
+  box-sizing: border-box;
+  flex-shrink: 0;
+  overflow: visible;
+}
+.es-admin-scan-rings {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: visible;
+}
+/* Full-size rings share the button’s bounding circle; scale() pushes the stroke outward past the button */
+.es-admin-scan-burst-ring {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  box-sizing: border-box;
+  border: 2.5px solid #2563eb;
+  background: transparent;
+  opacity: 0;
+  transform: translate(-50%, -50%) scale(1);
+  transform-origin: center center;
+}
+.es-admin-scan-burst-ring--2 {
+  animation-delay: 0.05s;
+}
+.es-admin-scan-burst-ring--3 {
+  animation-delay: 0.1s;
+}
+button:active .es-admin-scan-burst-ring {
+  animation: es-admin-scan-burst-pop 0.52s cubic-bezier(0.33, 1.2, 0.52, 1) forwards;
+}
+@keyframes es-admin-scan-burst-pop {
+  0% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+  40% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1.24);
+  }
+  66% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1.08);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(1);
+  }
+}

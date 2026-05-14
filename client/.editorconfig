@@ -1,0 +1,10 @@
+# Helps keep JS/CSS as UTF-8 so CRA/ESLint don't see NUL bytes from UTF-16 saves (Windows).
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+
+[*.{js,jsx,ts,tsx,css,json}]
+charset = utf-8
