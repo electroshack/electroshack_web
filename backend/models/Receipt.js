@@ -1,4 +1,5 @@
 const mongoose = require("mongoose");
+const crypto = require("crypto");
 
 const ItemUpdateSchema = new mongoose.Schema({
   message: { type: String, required: true },
@@ -52,6 +53,20 @@ const ReceiptUpdateSchema = new mongoose.Schema({
   date: { type: Date, default: Date.now },
   author: { type: String, default: "Staff" },
 });
+
+const ReceiptAuditEventSchema = new mongoose.Schema(
+  {
+    action: {
+      type: String,
+      enum: ["created", "updated", "status-update", "line-update", "message", "deleted", "restored"],
+      required: true,
+    },
+    actor: { type: String, default: "system" },
+    note: { type: String, default: "" },
+    date: { type: Date, default: Date.now },
+  },
+  { _id: false }
+);
 
 const ReceiptSchema = new mongoose.Schema(
   {
@@ -111,10 +126,40 @@ const ReceiptSchema = new mongoose.Schema(
     messages: [CustomerMessageSchema],
 
     notes: { type: String, default: "" },
+
+    publicAccessToken: {
+      type: String,
+      unique: true,
+      sparse: true,
+      index: true,
+    },
+
+    deletedAt: { type: Date, default: null, index: true },
+    deletedBy: { type: String, default: "" },
+    deleteReason: { type: String, default: "" },
+
+    auditEvents: [ReceiptAuditEventSchema],
   },
   { timestamps: true }
 );
 
 ReceiptSchema.index({ customerName: "text", customerPhone: "text" });
+ReceiptSchema.index({ deletedAt: 1, status: 1, receiptKind: 1 });
+
+ReceiptSchema.methods.ensurePublicAccessToken = function ensurePublicAccessToken() {
+  if (!this.publicAccessToken) {
+    this.publicAccessToken = crypto.randomBytes(24).toString("base64url");
+  }
+  return this.publicAccessToken;
+};
+
+ReceiptSchema.methods.addAuditEvent = function addAuditEvent(action, actor = "system", note = "") {
+  this.auditEvents.push({ action, actor, note });
+};
+
+ReceiptSchema.pre("validate", function ensureToken(next) {
+  if (!this.publicAccessToken) this.ensurePublicAccessToken();
+  next();
+});
 
 module.exports = mongoose.model("Receipt", ReceiptSchema);

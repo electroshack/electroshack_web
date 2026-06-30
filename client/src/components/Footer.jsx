@@ -45,8 +45,8 @@ export default function Footer() {
           <div>
             <h4 className="font-semibold mb-3 text-sm uppercase tracking-wider text-gray-300">Hours</h4>
             <ul className="space-y-2 text-gray-400 text-sm">
-              <li>Mon&ndash;Fri: 11am &ndash; 7pm</li>
-              <li>Sat: 11am &ndash; 6pm</li>
+              <li>Mon&ndash;Fri: 10am &ndash; 7pm</li>
+              <li>Sat: 10am &ndash; 6pm</li>
               <li>Sun: Closed</li>
             </ul>
             <div className="flex gap-3 mt-4">

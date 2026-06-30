@@ -54,6 +54,7 @@ function AppRoutes() {
       <Route path="/contact" element={<><Navbar /><Contact /><Footer /></>} />
       <Route path="/shop" element={<><Navbar /><Shop /><Footer /></>} />
       <Route path="/ticket" element={<><Navbar /><TicketLookup /><Footer /></>} />
+      <Route path="/ticket/:token" element={<><Navbar /><TicketLookup /><Footer /></>} />
       <Route path="/login" element={<Login />} />
 
       <Route path="/admin" element={<ProtectedRoute><AdminDashboard /></ProtectedRoute>} />

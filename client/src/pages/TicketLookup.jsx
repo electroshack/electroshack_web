@@ -1,5 +1,6 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Search, Clock, MessageCircle, Send, AlertCircle } from "lucide-react";
+import { useParams } from "react-router-dom";
 import toast from "react-hot-toast";
 import API from "../api";
 
@@ -39,12 +40,32 @@ const categoryLabels = {
 };
 
 export default function TicketLookup() {
+  const { token } = useParams();
   const [receiptNumber, setReceiptNumber] = useState("");
   const [ticket, setTicket] = useState(null);
   const [loading, setLoading] = useState(false);
   const [searched, setSearched] = useState(false);
   const [message, setMessage] = useState("");
   const [sendingMsg, setSendingMsg] = useState(false);
+
+  const loadByToken = async (linkToken) => {
+    setLoading(true);
+    setTicket(null);
+    setSearched(true);
+    try {
+      const { data } = await API.get(`/receipts/public/${encodeURIComponent(linkToken)}`);
+      setTicket(data);
+      setReceiptNumber(data.receiptNumber || "");
+    } catch (err) {
+      toast.error(err.response?.data?.error || "Ticket link not found.");
+    }
+    setLoading(false);
+  };
+
+  useEffect(() => {
+    if (token) loadByToken(token);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [token]);
 
   const handleSearch = async (e) => {
     e.preventDefault();
@@ -66,10 +87,16 @@ export default function TicketLookup() {
     if (!message.trim()) return;
     setSendingMsg(true);
     try {
-      await API.post(`/receipts/lookup/${encodeURIComponent(ticket.receiptNumber)}/message`, { message });
+      const messageUrl = token
+        ? `/receipts/public/${encodeURIComponent(token)}/message`
+        : `/receipts/lookup/${encodeURIComponent(ticket.receiptNumber)}/message`;
+      await API.post(messageUrl, { message });
       toast.success("Message sent!");
       setMessage("");
-      const { data } = await API.get(`/receipts/lookup/${encodeURIComponent(ticket.receiptNumber)}`);
+      const refreshUrl = token
+        ? `/receipts/public/${encodeURIComponent(token)}`
+        : `/receipts/lookup/${encodeURIComponent(ticket.receiptNumber)}`;
+      const { data } = await API.get(refreshUrl);
       setTicket(data);
     } catch {
       toast.error("Failed to send message.");

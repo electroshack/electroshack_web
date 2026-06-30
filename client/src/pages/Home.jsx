@@ -369,6 +369,7 @@ export default function Home() {
             ))}
           </div>
           <p className="mt-8 text-xs text-gray-400 tracking-wider">and more!</p>
+          <p className="mt-2 text-[10px] text-gray-300">Not officially associated with these companies.</p>
         </div>
       </section>
     </main>

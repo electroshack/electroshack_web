@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate, useParams, useLocation } from "react-router-dom";
-import { Save, ArrowLeft, Trash2, Plus, Send, X, Settings, Mail } from "lucide-react";
+import { Save, ArrowLeft, Trash2, Plus, Send, X, Settings, MessageSquare } from "lucide-react";
 import toast from "react-hot-toast";
 import AdminLayout from "../../components/AdminLayout";
 import API from "../../api";
@@ -131,6 +131,29 @@ export default function ReceiptForm() {
     setForm({ ...form, items });
   };
 
+  const customerCanNotify = Boolean(
+    (form.customerPhone && String(form.customerPhone).trim()) ||
+    (form.customerEmail && String(form.customerEmail).trim())
+  );
+
+  const receiptCanNotify = Boolean(
+    (receipt?.customerPhone && String(receipt.customerPhone).trim()) ||
+    (receipt?.customerEmail && String(receipt.customerEmail).trim())
+  );
+
+  function showNotificationResult(data, fallbackMessage) {
+    const sent = [];
+    const failed = [];
+    if (data?.smsNotify?.sent) sent.push("text");
+    else if (data?.smsNotify && !["no-phone"].includes(data.smsNotify.reason)) failed.push(`text: ${data.smsNotify.reason}`);
+    if (data?.emailNotify?.sent) sent.push("email");
+    else if (data?.emailNotify && !["no-email"].includes(data.emailNotify.reason)) failed.push(`email: ${data.emailNotify.reason}`);
+
+    if (sent.length > 0) toast.success(`${fallbackMessage} Customer notified by ${sent.join(" and ")}.`);
+    else toast.success(fallbackMessage);
+    failed.forEach((msg) => toast.error(`Notification failed (${msg})`));
+  }
+
   const addItem = () => {
     const items = [...form.items, { ...emptyItem }];
     const sub = items.reduce((sum, it) => sum + (parseFloat(it.price) || 0), 0);
@@ -172,10 +195,10 @@ export default function ReceiptForm() {
         if (saveNotify) payload.notifyCustomer = true;
         const { data } = await API.put(`/receipts/${id}`, payload);
         setReceipt(data);
-        toast.success(saveNotify ? "Quote updated and customer notified!" : "Quote updated!");
+        showNotificationResult(data, saveNotify ? "Quote updated." : "Quote updated!");
       } else {
         const { data } = await API.post("/receipts", payload);
-        toast.success(`Quote ${data.receiptNumber} created!`);
+        showNotificationResult(data, `Quote ${data.receiptNumber} created!`);
         navigate("/admin/receipts");
       }
     } catch (err) {
@@ -185,10 +208,10 @@ export default function ReceiptForm() {
   };
 
   const handleDelete = async () => {
-    if (!window.confirm("Are you sure? This cannot be undone.")) return;
+    if (!window.confirm("Move this quote to deleted receipts? It can be restored by an admin.")) return;
     try {
       await API.delete(`/receipts/${id}`);
-      toast.success("Receipt deleted.");
+      toast.success("Quote moved to deleted receipts.");
       navigate("/admin/receipts");
     } catch {
       toast.error("Failed to delete.");
@@ -198,17 +221,16 @@ export default function ReceiptForm() {
   const handleAddUpdate = async (e) => {
     e.preventDefault();
     if (!updateMsg.trim()) return;
-    const customerHasEmail = Boolean(receipt?.customerEmail && String(receipt.customerEmail).trim());
     try {
       const payload = { message: updateMsg };
       if (updateStatus) payload.status = updateStatus;
-      if (updateNotify && customerHasEmail) payload.notifyCustomer = true;
+      if (updateNotify && receiptCanNotify) payload.notifyCustomer = true;
       const { data } = await API.post(`/receipts/${id}/update`, payload);
       setReceipt(data);
       setForm((f) => ({ ...f, status: data.status }));
       setUpdateMsg("");
       setUpdateStatus("");
-      toast.success(updateNotify && customerHasEmail ? "Update posted and emailed to customer!" : "Update posted!");
+      showNotificationResult(data, updateNotify && receiptCanNotify ? "Update posted." : "Update posted!");
     } catch {
       toast.error("Failed to add update.");
     }
@@ -549,7 +571,7 @@ export default function ReceiptForm() {
                   <Save size={16} />
                   {saving ? "Saving..." : isEdit ? "Update quote" : "Create quote"}
                 </button>
-                {isEdit && form.customerEmail ? (
+                {isEdit && customerCanNotify ? (
                   <label className="flex items-center gap-2 text-xs text-amber-900/80 cursor-pointer select-none">
                     <input
                       type="checkbox"
@@ -557,11 +579,11 @@ export default function ReceiptForm() {
                       onChange={(e) => setSaveNotify(e.target.checked)}
                       className="w-4 h-4 text-primary-500 rounded border-amber-800/40 focus:ring-primary-500"
                     />
-                    <Mail size={13} className="text-amber-800/70" />
-                    Email {form.customerEmail} a quote update on save
+                    <MessageSquare size={13} className="text-amber-800/70" />
+                    Text{form.customerEmail ? " / email" : ""} customer a quote update on save
                   </label>
                 ) : isEdit ? (
-                  <span className="text-[11px] text-amber-800/60 italic">Add a customer email above to enable email updates.</span>
+                  <span className="text-[11px] text-amber-800/60 italic">Add a customer phone or email above to enable customer notifications.</span>
                 ) : null}
               </div>
             </div>
@@ -596,7 +618,7 @@ export default function ReceiptForm() {
                       <Plus size={16} />
                     </button>
                   </div>
-                  {receipt?.customerEmail ? (
+                  {receiptCanNotify ? (
                     <label className="flex items-center gap-2 text-xs text-gray-600 cursor-pointer select-none">
                       <input
                         type="checkbox"
@@ -604,11 +626,12 @@ export default function ReceiptForm() {
                         onChange={(e) => setUpdateNotify(e.target.checked)}
                         className="w-4 h-4 text-primary-500 rounded border-gray-300 focus:ring-primary-500"
                       />
-                      <Mail size={13} className="text-primary-500" />
-                      Email this update to <span className="font-mono">{receipt.customerEmail}</span>
+                      <MessageSquare size={13} className="text-primary-500" />
+                      Text{receipt.customerEmail ? " / email" : ""} this update to{" "}
+                      <span className="font-mono">{receipt.customerPhone || receipt.customerEmail}</span>
                     </label>
                   ) : (
-                    <p className="text-[11px] text-gray-400 italic">Add a customer email on this quote to enable customer email notifications.</p>
+                    <p className="text-[11px] text-gray-400 italic">Add a customer phone or email on this quote to enable customer notifications.</p>
                   )}
                 </form>
               </div>
