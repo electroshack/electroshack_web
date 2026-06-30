@@ -11,7 +11,7 @@
     "axios": "^1.15.1",
     "html5-qrcode": "^2.3.8",
     "lucide-react": "^1.8.0",
-    "postcss": "^8.5.10",
+    "postcss": "^8.5.16",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-hot-toast": "^2.6.0",
@@ -31,6 +31,13 @@
     "test": "craco test",
     "eject": "react-scripts eject",
     "postinstall": "patch-package"
+  },
+  "overrides": {
+    "@tootallnate/once": "^3.0.1",
+    "nth-check": "^3.0.1",
+    "serialize-javascript": "^7.0.6",
+    "underscore": "^1.13.8",
+    "uuid": "^14.0.1"
   },
   "eslintConfig": {
     "extends": [

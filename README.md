@@ -106,7 +106,7 @@ cd ../client && npm install
 Copy or edit `backend/.env`:
 
 ```env
-MONGODB_URI=mongodb://localhost:27017/electroshackDB
+MONGODB_URI=mongodb://127.0.0.1:27017/electroshack
 JWT_SECRET=change-this-to-a-long-random-string
 PORT=5000
 
@@ -117,13 +117,19 @@ EMAIL_USER=your@gmail.com
 EMAIL_PASS=your-app-password
 SMTP_FROM=Electroshack <your@gmail.com>
 
-# Where customers access the site (used in email links)
-PUBLIC_SITE_URL=http://localhost:3000
+# Where customers access the site (used in email/SMS receipt links)
+PUBLIC_SITE_URL=http://localhost:5000
 
 # Admin bootstrap
-ADMIN_PASSWORD=admin123
+ADMIN_PASSWORD=change-this-before-install
 # Set to true once to force-reset admin password on next start
 # RESET_ADMIN_PASSWORD=true
+
+# SMS (optional)
+TWILIO_ACCOUNT_SID=
+TWILIO_AUTH_TOKEN=
+TWILIO_MESSAGING_SERVICE_SID=
+TWILIO_FROM_NUMBER=
 ```
 
 ### 3. Start development servers
@@ -143,26 +149,26 @@ The CRA dev proxy forwards `/api` requests to the backend automatically.
 ### 4. Default admin login
 
 - **Username**: `admin`
-- **Password**: `admin123` (change immediately in production)
+- **Password**: value of `ADMIN_PASSWORD` (fallback is `admin123` for development only)
 
 ---
 
 ## Database Setup (MongoDB)
 
-### Option A: Local MongoDB
+### Option A: Local MongoDB (recommended for production)
 
 1. Install MongoDB Community Server: https://www.mongodb.com/try/download/community
 2. Start `mongod` (default port 27017)
 3. Set in `backend/.env`:
    ```
-   MONGODB_URI=mongodb://localhost:27017/electroshackDB
+   MONGODB_URI=mongodb://127.0.0.1:27017/electroshack
    ```
 4. Seed admin user:
    ```bash
    cd backend && npm run seed
    ```
 
-### Option B: MongoDB Atlas (Cloud â€” recommended for production)
+### Option B: MongoDB Atlas (legacy/cloud option)
 
 1. Create free cluster at https://www.mongodb.com/atlas
 2. Create a database user (username/password)
@@ -175,9 +181,9 @@ The CRA dev proxy forwards `/api` requests to the backend automatically.
 
 > **Free-tier capacity:** MongoDB Atlas M0 ships with a 512 MiB cap. The admin dashboard exposes a live storage widget (`/api/admin/storage-stats`) that turns yellow above 70% and red above 90% so you get plenty of warning before writes start failing. To monitor a different cap (e.g. after upgrading to M2 / M5), set `MONGODB_CAP_BYTES` on Render. Render free instances sleep after ~15 minutes of inactivity (a quick wake-up on the next request is normal) and bandwidth is metered monthly â€” their dashboard surfaces both.
 
-### Option C: No MongoDB (Development only)
+### Option C: Explicit in-memory DB (development only)
 
-Just start the backend without setting `MONGODB_URI`. It will spin up `mongodb-memory-server` automatically. All data is lost when the server stops.
+Set `ALLOW_IN_MEMORY_DB=true` to intentionally run an ephemeral database. The server no longer falls back to in-memory automatically because losing receipts is unacceptable.
 
 ### Collections
 
@@ -346,7 +352,7 @@ server {
 # Seed admin user (requires MONGODB_URI)
 cd backend && npm run seed
 
-# Reset admin password to admin123
+# Reset admin password to ADMIN_PASSWORD (or admin123 if unset)
 cd backend && npm run reset-admin
 
 # Build frontend for production
