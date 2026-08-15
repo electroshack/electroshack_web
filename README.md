@@ -2,6 +2,22 @@
 
 A modern web-based storefront and point-of-sale (POS) system for Electroshack, replacing the handwritten receipt system with a digital workflow.
 
+## Store PC (USB)
+
+Day-to-day shop use runs on the Windows PC in the back of the store. The database stays on that PC. No Atlas, Cloudflare, Twilio, or extra accounts are required.
+
+1. On the Mac, copy this repo onto a USB stick (so `SETUP.bat` is at the stick root):
+
+   ```bash
+   ./usb/copy-to-usb.sh /Volumes/YOUR-USB-NAME
+   ```
+
+2. Plug the stick into the Windows PC and double-click **SETUP.bat**.
+3. Sign in at http://localhost:5000/login — credentials are in [`usb/README.txt`](usb/README.txt).
+4. Plug the stick in later and double-click **BACKUP.bat**. Restores use **RESTORE.bat**. Dumps land in `backups\` on the USB.
+
+The public website can stay on Vercel/GoDaddy. The store PC does not depend on those services.
+
 ## Live deployment
 
 | Surface | URL |
@@ -50,7 +66,7 @@ Public storefront, admin dashboard with database capacity widget, customer quote
 - **Track Repair** â€” Customers search by receipt number to see status, updates, and send messages
 
 ### Admin Dashboard (POS)
-- **Dashboard** â€” Stats overview, quick actions, recent quotes, and a live database-storage widget (turns yellow at 70% / red at 90% of the Atlas free-tier 512 MiB cap; configurable via `MONGODB_CAP_BYTES`).
+- **Dashboard** â€” Stats overview, quick actions, recent quotes, and a live database-storage widget (turns yellow at 70% / red at 90% of the local disk budget; configurable via `MONGODB_CAP_BYTES`).
 - **Quote management** â€” Full CRUD for digital quotes replacing handwritten invoices.
   - Sequential 6-7 digit quote numbers (ES-YYYY-######)
   - Customer info (name, phone, email, address)
@@ -78,7 +94,7 @@ Public storefront, admin dashboard with database capacity widget, customer quote
 
 - **Frontend**: React 18, React Router v6, Tailwind CSS, Lucide Icons, html5-qrcode
 - **Backend**: Express.js 4, Mongoose 8, JWT Auth (jose), Nodemailer
-- **Database**: MongoDB (with automatic in-memory fallback for development)
+- **Database**: MongoDB on the store PC (`mongodb://127.0.0.1:27017/electroshack`). In-memory mode is opt-in for development only (`ALLOW_IN_MEMORY_DB=true`) and is refused on the store PC.
 - **Build**: Create React App 5 + CRACO
 
 ## Color Scheme
@@ -92,7 +108,7 @@ Public storefront, admin dashboard with database capacity widget, customer quote
 
 ### Prerequisites
 - **Node.js 20+** (LTS recommended)
-- **MongoDB** (optional â€” uses in-memory DB if not available)
+- **MongoDB** locally (required for the store PC; development may set `ALLOW_IN_MEMORY_DB=true`)
 
 ### 1. Install dependencies
 

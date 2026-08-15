@@ -35,5 +35,11 @@ yarn-error.log*
 *.zip
 *.tar.gz
 
+# USB Mongo dumps (keep the folder + README)
+backups/*.zip
+backups/dump-*/
+usb/backups/*.zip
+usb/backups/dump-*/
+
 client/.vercel/
 

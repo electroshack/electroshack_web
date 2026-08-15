@@ -141,8 +141,8 @@ export default function Dashboard() {
                 {storage.level !== "ok" && (
                   <p className="text-[11px] text-gray-600 mt-3 leading-snug">
                     {storage.level === "critical"
-                      ? "Atlas's free M0 cluster is almost out of space — new writes will start failing soon. Upgrade the cluster on MongoDB Atlas, or purge old quotes / inventory photos."
-                      : "You're past the comfort zone for the free M0 cluster. Plan an upgrade (M2 starts at $9/mo) or trim large records before you hit the cap."}
+                      ? "This PC's database budget is almost full. Run BACKUP.bat, then delete old photos or unused quotes before writes start failing."
+                      : "Database storage is getting high. Back up to the USB stick and trim large inventory photos before you hit the cap."}
                   </p>
                 )}
               </div>

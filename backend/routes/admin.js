@@ -4,11 +4,11 @@ const { auth, superAdmin } = require("../middleware/auth");
 const router = express.Router();
 
 /**
- * MongoDB Atlas free M0 cluster cap is 512 MiB. Atlas surfaces this through
- * `dbStats()` (`storageSize` + `indexSize` for the data we control). We expose
- * it so the admin dashboard can warn before the database fills up.
+ * Local MongoDB is limited by disk, not Atlas. Default budget is 20 GiB so the
+ * dashboard widget warns before the store PC disk fills with photos/receipts.
+ * Override with MONGODB_CAP_BYTES.
  */
-const FREE_TIER_CAP_BYTES = 512 * 1024 * 1024;
+const DEFAULT_CAP_BYTES = 20 * 1024 * 1024 * 1024;
 
 router.get("/storage-stats", auth, async (req, res) => {
   try {
@@ -17,7 +17,7 @@ router.get("/storage-stats", auth, async (req, res) => {
     const storageBytes = Number(stats.storageSize || 0);
     const indexBytes = Number(stats.indexSize || 0);
     const totalBytes = storageBytes + indexBytes;
-    const cap = Number(process.env.MONGODB_CAP_BYTES) || FREE_TIER_CAP_BYTES;
+    const cap = Number(process.env.MONGODB_CAP_BYTES) || DEFAULT_CAP_BYTES;
     const usedPct = Math.min(100, (totalBytes / cap) * 100);
 
     let level = "ok";
@@ -26,7 +26,7 @@ router.get("/storage-stats", auth, async (req, res) => {
 
     res.json({
       cap: cap,
-      capLabel: cap === 512 * 1024 * 1024 ? "Atlas Free M0 (512 MiB)" : "Custom cap",
+      capLabel: cap === DEFAULT_CAP_BYTES ? "Local MongoDB (20 GiB budget)" : "Custom local cap",
       dataSize: dataBytes,
       storageSize: storageBytes,
       indexSize: indexBytes,

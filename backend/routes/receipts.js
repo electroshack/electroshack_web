@@ -243,6 +243,74 @@ router.get("/preview-new", auth, async (req, res) => {
   }
 });
 
+router.get("/public/:token", async (req, res) => {
+  try {
+    const receipt = await Receipt.findOne(activeReceiptFilter({ publicAccessToken: req.params.token }));
+    if (!receipt) {
+      return res.status(404).json({ error: "Ticket link not found." });
+    }
+    res.json(publicReceiptPayload(receipt));
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.post("/public/:token/message", async (req, res) => {
+  try {
+    const receipt = await Receipt.findOne(activeReceiptFilter({ publicAccessToken: req.params.token }));
+    if (!receipt) {
+      return res.status(404).json({ error: "Ticket link not found." });
+    }
+
+    receipt.messages.push({
+      message: req.body.message,
+      sender: "customer",
+    });
+    receipt.addAuditEvent("message", "customer", "public token message");
+
+    await receipt.save();
+    res.json({ message: "Message sent successfully." });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.get("/lookup/:receiptNumber", async (req, res) => {
+  try {
+    const receipt = await Receipt.findOne(activeReceiptFilter({
+      receiptNumber: req.params.receiptNumber,
+    }));
+    if (!receipt) {
+      return res.status(404).json({ error: "Ticket not found. Please check your receipt number." });
+    }
+    res.json(publicReceiptPayload(receipt));
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.post("/lookup/:receiptNumber/message", async (req, res) => {
+  try {
+    const receipt = await Receipt.findOne(activeReceiptFilter({
+      receiptNumber: req.params.receiptNumber,
+    }));
+    if (!receipt) {
+      return res.status(404).json({ error: "Ticket not found." });
+    }
+
+    receipt.messages.push({
+      message: req.body.message,
+      sender: "customer",
+    });
+    receipt.addAuditEvent("message", "customer", "receipt-number lookup message");
+
+    await receipt.save();
+    res.json({ message: "Message sent successfully." });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 router.get("/:id", auth, async (req, res) => {
   try {
     const receipt = await Receipt.findById(req.params.id);
@@ -409,75 +477,6 @@ router.post("/:id/restore", auth, async (req, res) => {
     receipt.addAuditEvent("restored", req.user?.username || "admin");
     await receipt.save();
     res.json(receipt);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-router.get("/public/:token", async (req, res) => {
-  try {
-    const receipt = await Receipt.findOne(activeReceiptFilter({ publicAccessToken: req.params.token }));
-    if (!receipt) {
-      return res.status(404).json({ error: "Ticket link not found." });
-    }
-    res.json(publicReceiptPayload(receipt));
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-router.post("/public/:token/message", async (req, res) => {
-  try {
-    const receipt = await Receipt.findOne(activeReceiptFilter({ publicAccessToken: req.params.token }));
-    if (!receipt) {
-      return res.status(404).json({ error: "Ticket link not found." });
-    }
-
-    receipt.messages.push({
-      message: req.body.message,
-      sender: "customer",
-    });
-    receipt.addAuditEvent("message", "customer", "public token message");
-
-    await receipt.save();
-    res.json({ message: "Message sent successfully." });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// PUBLIC: customer ticket lookup
-router.get("/lookup/:receiptNumber", async (req, res) => {
-  try {
-    const receipt = await Receipt.findOne(activeReceiptFilter({
-      receiptNumber: req.params.receiptNumber,
-    }));
-    if (!receipt) {
-      return res.status(404).json({ error: "Ticket not found. Please check your receipt number." });
-    }
-    res.json(publicReceiptPayload(receipt));
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-router.post("/lookup/:receiptNumber/message", async (req, res) => {
-  try {
-    const receipt = await Receipt.findOne(activeReceiptFilter({
-      receiptNumber: req.params.receiptNumber,
-    }));
-    if (!receipt) {
-      return res.status(404).json({ error: "Ticket not found." });
-    }
-
-    receipt.messages.push({
-      message: req.body.message,
-      sender: "customer",
-    });
-    receipt.addAuditEvent("message", "customer", "receipt-number lookup message");
-
-    await receipt.save();
-    res.json({ message: "Message sent successfully." });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
