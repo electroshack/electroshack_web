@@ -1,3 +1,4 @@
+const os = require("os");
 const express = require("express");
 const mongoose = require("mongoose");
 const { auth, superAdmin } = require("../middleware/auth");
@@ -9,6 +10,19 @@ const router = express.Router();
  * Override with MONGODB_CAP_BYTES.
  */
 const DEFAULT_CAP_BYTES = 20 * 1024 * 1024 * 1024;
+
+function lanAddresses() {
+  const nets = os.networkInterfaces();
+  const out = [];
+  for (const list of Object.values(nets)) {
+    for (const net of list || []) {
+      if (net.family !== "IPv4" && net.family !== 4) continue;
+      if (net.internal) continue;
+      out.push(net.address);
+    }
+  }
+  return out;
+}
 
 router.get("/storage-stats", auth, async (req, res) => {
   try {
@@ -73,6 +87,19 @@ router.get("/storage-stats/by-collection", auth, superAdmin, async (req, res) =>
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
+});
+
+router.get("/reachability", auth, (req, res) => {
+  const port = process.env.PORT || 5000;
+  const publicSiteUrl = (process.env.PUBLIC_SITE_URL || "").replace(/\/$/, "");
+  const lan = lanAddresses();
+  const worldwide = Boolean(publicSiteUrl && /^https:\/\//i.test(publicSiteUrl) && !/localhost|127\.0\.0\.1/i.test(publicSiteUrl));
+  res.json({
+    publicSiteUrl: publicSiteUrl || `http://localhost:${port}`,
+    worldwide,
+    localUrl: `http://localhost:${port}`,
+    lanUrls: lan.map((ip) => `http://${ip}:${port}`),
+  });
 });
 
 module.exports = router;

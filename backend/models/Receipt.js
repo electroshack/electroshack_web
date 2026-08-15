@@ -58,7 +58,7 @@ const ReceiptAuditEventSchema = new mongoose.Schema(
   {
     action: {
       type: String,
-      enum: ["created", "updated", "status-update", "line-update", "message", "deleted", "restored"],
+      enum: ["created", "updated", "status-update", "line-update", "message", "deleted", "restored", "payment"],
       required: true,
     },
     actor: { type: String, default: "system" },
@@ -126,6 +126,19 @@ const ReceiptSchema = new mongoose.Schema(
     messages: [CustomerMessageSchema],
 
     notes: { type: String, default: "" },
+
+    payment: {
+      method: {
+        type: String,
+        enum: ["unpaid", "cash", "terminal", "etransfer", "other"],
+        default: "unpaid",
+      },
+      amountPaid: { type: Number, default: 0 },
+      terminalRef: { type: String, default: "" },
+      deviceLabel: { type: String, default: "" },
+      paidAt: { type: Date, default: null },
+      note: { type: String, default: "" },
+    },
 
     publicAccessToken: {
       type: String,

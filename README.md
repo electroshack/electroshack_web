@@ -14,9 +14,8 @@ Day-to-day shop use runs on the Windows PC in the back of the store. The databas
 
 2. Plug the stick into the Windows PC and double-click **SETUP.bat**.
 3. Sign in at http://localhost:5000/login — credentials are in [`usb/README.txt`](usb/README.txt).
-4. Plug the stick in later and double-click **BACKUP.bat**. Restores use **RESTORE.bat**. Dumps land in `backups\` on the USB.
-
-The public website can stay on Vercel/GoDaddy. The store PC does not depend on those services.
+4. After SETUP, the site is this PC and the shop Wi-Fi only. To let customers open ticket links from home, double-click **ENABLE-INTERNET.bat**, add the GoDaddy A record it prints, and forward ports 80/443 to the PC. The database still stays on that machine.
+5. Plug the stick in later and double-click **BACKUP.bat**. Restores use **RESTORE.bat**. Dumps land in `backups\` on the USB.
 
 ## Live deployment
 

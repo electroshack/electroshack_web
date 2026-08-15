@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { Receipt, Package, MessageSquare, DollarSign, Clock, Plus, AlertTriangle, Database } from "lucide-react";
+import { Receipt, Package, MessageSquare, DollarSign, Clock, Plus, AlertTriangle, Database, Globe } from "lucide-react";
 import AdminLayout from "../../components/AdminLayout";
 import API from "../../api";
 
@@ -18,6 +18,7 @@ export default function Dashboard() {
   const [unreadMessages, setUnreadMessages] = useState(0);
   const [recentReceipts, setRecentReceipts] = useState([]);
   const [storage, setStorage] = useState(null);
+  const [reach, setReach] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -27,6 +28,7 @@ export default function Dashboard() {
       API.get("/contact-forms").then((r) => setUnreadMessages(r.data.filter((f) => !f.read).length)).catch(() => {}),
       API.get("/receipts?limit=5").then((r) => setRecentReceipts(r.data.receipts || [])).catch(() => {}),
       API.get("/admin/storage-stats").then((r) => setStorage(r.data)).catch(() => {}),
+      API.get("/admin/reachability").then((r) => setReach(r.data)).catch(() => {}),
     ]).finally(() => setLoading(false));
   }, []);
 
@@ -95,6 +97,32 @@ export default function Dashboard() {
               </div>
             ))}
           </div>
+
+          {reach ? (
+            <div className="bg-white rounded-xl border border-gray-100 p-5">
+              <div className="flex items-start gap-3">
+                <div className={`p-2 rounded-lg ${reach.worldwide ? "bg-green-50 text-green-600" : "bg-amber-50 text-amber-700"}`}>
+                  <Globe size={20} />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-sm font-bold text-dark-900">
+                    {reach.worldwide ? "Customers can open tickets from home" : "Tickets are local-only until you enable internet"}
+                  </p>
+                  <p className="text-xs text-gray-500 mt-1 break-all">
+                    Public URL: {reach.publicSiteUrl || "http://localhost:5000"}
+                  </p>
+                  {reach.lanUrls?.length ? (
+                    <p className="text-xs text-gray-500 mt-0.5 break-all">Shop Wi-Fi: {reach.lanUrls.join(" · ")}</p>
+                  ) : null}
+                  {!reach.worldwide ? (
+                    <p className="text-xs text-amber-800 mt-2">
+                      On the USB stick, run ENABLE-INTERNET.bat. That uses your GoDaddy domain and this PC — no extra cloud accounts.
+                    </p>
+                  ) : null}
+                </div>
+              </div>
+            </div>
+          ) : null}
 
           {/* Database storage (free-tier capacity warning) */}
           {storage && (() => {

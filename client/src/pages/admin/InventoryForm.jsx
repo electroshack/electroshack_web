@@ -515,8 +515,8 @@ export default function InventoryForm() {
     }
   };
 
-  const inputCls = "w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent";
-  const labelCls = "block text-sm font-medium text-gray-600 mb-1";
+  const inputCls = "w-full px-2.5 py-1.5 bg-white border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent";
+  const labelCls = "block text-xs font-medium text-gray-600 mb-0.5";
   const monoInputCls = `${inputCls} font-mono text-[13px] tracking-wide`;
   const idCfg = identifierConfig(form.category);
   const IdIcon = idCfg.icon;
@@ -585,11 +585,11 @@ export default function InventoryForm() {
             )}
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-5">
+          <form onSubmit={handleSubmit} className="space-y-3">
             {!isEdit && <QuickAddCommonItems onPick={applyPreset} disabled={saving} />}
 
             {/* Category (+ internal # on edit only) */}
-            <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
+            <div className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
               <div className="flex flex-col sm:flex-row sm:items-end gap-4">
                 <div className="flex-1 min-w-0">
                   <p className="text-xs font-medium uppercase tracking-wide text-gray-400 mb-2">Category</p>
@@ -625,12 +625,12 @@ export default function InventoryForm() {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_288px] gap-6 items-start">
-              <div className="min-w-0 space-y-5 order-2 lg:order-1">
+            <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_288px] gap-4 items-start">
+              <div className="min-w-0 space-y-3 order-2 lg:order-1">
             {/* Listing */}
-            <div className="rounded-2xl border border-gray-100 bg-white p-5 sm:p-6 shadow-sm">
-              <h3 className="font-semibold text-dark-900 mb-4">Listing</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
+              <h3 className="font-semibold text-dark-900 mb-3">Listing</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div className="md:col-span-2">
                   <label className={labelCls}>Name *</label>
                   <input name="name" value={form.name} onChange={handleChange} required className={inputCls} />
@@ -682,13 +682,13 @@ export default function InventoryForm() {
             </div>
 
             {/* Photos for storefront */}
-            <div className="rounded-2xl border border-gray-100 bg-white p-5 sm:p-6 shadow-sm">
+            <div className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
               <InventoryImageUploader value={form.images || []} onChange={handleImagesChange} max={1} />
             </div>
 
             {/* Pricing row */}
-            <div className="rounded-2xl border border-gray-100 bg-white p-5 sm:p-6 shadow-sm">
-              <h3 className="font-semibold text-dark-900 mb-4">Pricing</h3>
+            <div className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
+              <h3 className="font-semibold text-dark-900 mb-3">Pricing</h3>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-xl">
                 <div>
                   <label className={labelCls}>Cost ($)</label>
@@ -763,7 +763,7 @@ export default function InventoryForm() {
               </div>
             </details>
 
-            <div className="rounded-2xl border border-gray-100 bg-white p-5 sm:p-6 shadow-sm">
+            <div className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
               <h3 className="font-semibold text-dark-900 mb-2">Internal notes</h3>
               <textarea name="notes" value={form.notes} onChange={handleChange} rows={3} className={inputCls} placeholder="Staff-only — warranty notes, quirks, etc." />
             </div>

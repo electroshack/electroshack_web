@@ -70,6 +70,7 @@ app.get("/api/health", (req, res) => {
   res.json({
     status: "ok",
     db: mongoose.connection.readyState === 1 ? "connected" : "disconnected",
+    publicSiteUrl: process.env.PUBLIC_SITE_URL || "",
   });
 });
 
@@ -132,8 +133,11 @@ async function startServer() {
   }
 
   const PORT = process.env.PORT || 5000;
-  app.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
+  const HOST = process.env.BIND_HOST || "0.0.0.0";
+  app.listen(PORT, HOST, () => {
+    console.log(`Server running on http://${HOST}:${PORT}`);
+    const publicUrl = process.env.PUBLIC_SITE_URL || `http://localhost:${PORT}`;
+    console.log(`Ticket links use PUBLIC_SITE_URL=${publicUrl}`);
   });
 }
 

@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import toast from "react-hot-toast";
 import { Download, BarChart3 } from "lucide-react";
 import AdminLayout from "../../components/AdminLayout";
+import SalesChart from "../../components/SalesChart";
 import API from "../../api";
 
 function startOfMonthISO() {
@@ -61,13 +62,14 @@ export default function Metrics() {
 
   const r = summary?.receipts;
   const inv = summary?.inventory;
+  const rangeFrom = summary?.range?.from || from;
+  const rangeTo = summary?.range?.to || to;
 
   return (
     <AdminLayout title="Metrics & export">
-      <div className="max-w-4xl space-y-6">
+      <div className="max-w-5xl space-y-5">
         <p className="text-sm text-gray-600">
-          Repair ticket revenue uses completed tickets in the date range (<code className="text-xs bg-gray-100 px-1 rounded">date</code> field). Inventory money in/out uses{" "}
-          <code className="text-xs bg-gray-100 px-1 rounded">dateSold</code> / <code className="text-xs bg-gray-100 px-1 rounded">dateBought</code>.
+          Completed quotes and inventory sold in the selected dates. Use this to see what the shop actually took in.
         </p>
 
         <form onSubmit={applyRange} className="flex flex-wrap items-end gap-3 bg-white rounded-xl border border-gray-100 p-4">
@@ -97,28 +99,41 @@ export default function Metrics() {
             <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary-500" />
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="bg-white rounded-xl border border-gray-100 p-5">
-              <div className="flex items-center gap-2 text-primary-600 mb-2">
-                <BarChart3 size={20} />
-                <span className="font-semibold text-dark-900">Receipts</span>
+          <>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="bg-white rounded-xl border border-gray-100 p-5">
+                <div className="flex items-center gap-2 text-primary-600 mb-2">
+                  <BarChart3 size={20} />
+                  <span className="font-semibold text-dark-900">Receipts</span>
+                </div>
+                <p className="text-2xl font-bold text-dark-900">{r?.totalInRange ?? 0}</p>
+                <p className="text-sm text-gray-500">Tickets in range</p>
+                <p className="text-lg font-semibold text-dark-900 mt-3">${Number(r?.completedRevenue || 0).toFixed(2)}</p>
+                <p className="text-sm text-gray-500">Revenue (completed quotes)</p>
               </div>
-              <p className="text-2xl font-bold text-dark-900">{r?.totalInRange ?? 0}</p>
-              <p className="text-sm text-gray-500">Tickets in range</p>
-              <p className="text-lg font-semibold text-dark-900 mt-3">${Number(r?.completedRevenue || 0).toFixed(2)}</p>
-              <p className="text-sm text-gray-500">Revenue (completed, final total)</p>
+              <div className="bg-white rounded-xl border border-gray-100 p-5">
+                <div className="flex items-center gap-2 text-accent-600 mb-2">
+                  <BarChart3 size={20} />
+                  <span className="font-semibold text-dark-900">Inventory</span>
+                </div>
+                <p className="text-lg font-bold text-green-700">${Number(inv?.moneyInSold || 0).toFixed(2)}</p>
+                <p className="text-sm text-gray-500">Money in (sold lines × price)</p>
+                <p className="text-lg font-bold text-amber-800 mt-2">${Number(inv?.moneyOutPurchases || 0).toFixed(2)}</p>
+                <p className="text-sm text-gray-500">Money out (purchases × cost)</p>
+              </div>
+            </div>
+
+            <div className="bg-white rounded-xl border border-gray-100 p-5">
+              <h3 className="font-semibold text-dark-900 mb-1">Completed quote sales</h3>
+              <p className="text-xs text-gray-500 mb-2">Daily totals from completed tickets</p>
+              <SalesChart from={rangeFrom} to={rangeTo} series={summary?.daily?.quotes || []} color="#0787ec" />
             </div>
             <div className="bg-white rounded-xl border border-gray-100 p-5">
-              <div className="flex items-center gap-2 text-accent-600 mb-2">
-                <BarChart3 size={20} />
-                <span className="font-semibold text-dark-900">Inventory</span>
-              </div>
-              <p className="text-lg font-bold text-green-700">${Number(inv?.moneyInSold || 0).toFixed(2)}</p>
-              <p className="text-sm text-gray-500">Money in (sold lines × price)</p>
-              <p className="text-lg font-bold text-amber-800 mt-2">${Number(inv?.moneyOutPurchases || 0).toFixed(2)}</p>
-              <p className="text-sm text-gray-500">Money out (purchases × cost)</p>
+              <h3 className="font-semibold text-dark-900 mb-1">Inventory sold</h3>
+              <p className="text-xs text-gray-500 mb-2">Daily selling price × quantity</p>
+              <SalesChart from={rangeFrom} to={rangeTo} series={summary?.daily?.inventory || []} color="#ca8a04" emptyLabel="No inventory sales in this range yet." />
             </div>
-          </div>
+          </>
         )}
       </div>
     </AdminLayout>

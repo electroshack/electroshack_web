@@ -19,8 +19,7 @@ WHAT TO DO ON THE STORE PC
 5. Wait. First run installs Node.js + MongoDB, copies the app, and starts it.
 6. Browser should open http://localhost:5000
 
-After that, the app starts when someone signs into Windows. You do not need
-Vercel, Render, Cloudflare, Twilio, or Atlas for day-to-day store use.
+After that, the app starts when someone signs into Windows.
 
 If the app is already installed and you just want to open it:
 
@@ -31,6 +30,30 @@ LOCAL LOGIN (this USB is the key)
 Open:     http://localhost:5000/login
 Username: admin
 Password: $9600Electr@
+
+WHO CAN OPEN THE SITE
+---------------------
+After SETUP only:
+
+  This PC:     http://localhost:5000
+  Shop Wi-Fi:  http://THE-PC-LAN-IP:5000
+
+People at home cannot see receipts yet. Ticket emails would point at localhost.
+
+To let customers open /ticket links from anywhere:
+
+  1. Double-click ENABLE-INTERNET.bat
+  2. Accept the hostname (default app.electroshack.ca)
+  3. In GoDaddy DNS, add an A record for that name to this PC's public IP
+     (the script prints the IP).
+  4. On the store router, forward TCP 80 and 443 to this PC.
+  5. Restart with START.bat so new ticket links use https://app.electroshack.ca
+
+The database still stays on this PC. The public website is just a door into
+that same machine. Keep the PC on. If Rogers/Bell changes your IP, update
+the GoDaddy A record.
+
+No Cloudflare, Vercel, Twilio, or Atlas is required for this.
 
 BACKUPS
 -------
@@ -54,6 +77,7 @@ App:      C:\Electroshack\app
 Database: MongoDB on the PC  (mongodb://127.0.0.1:27017/electroshack)
 Logs:     C:\Electroshack\logs\backend.log
 Backups:  this USB  \backups
+HTTPS:    Caddy on this PC after ENABLE-INTERNET.bat
 
 Keep this USB in the shop. If the PC dies, restore a backup onto a new PC
 with SETUP.bat then RESTORE.bat.

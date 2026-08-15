@@ -123,6 +123,10 @@ $nodeExe = (Get-Command node).Source
 schtasks /Create /TN "Electroshack Local Server" /TR "`"$startCmdPath`"" /SC ONLOGON /RL HIGHEST /F | Out-Null
 Write-Log "Registered Windows logon task: Electroshack Local Server"
 
+netsh advfirewall firewall delete rule name="Electroshack TCP 5000" 2>$null | Out-Null
+netsh advfirewall firewall add rule name="Electroshack TCP 5000" dir=in action=allow protocol=TCP localport=5000 | Out-Null
+Write-Log "Opened Windows Firewall for port 5000 (shop LAN)"
+
 Write-Log "Starting Electroshack"
 Start-Process -FilePath $startCmdPath
 Start-Sleep -Seconds 5

@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate, useParams, useLocation } from "react-router-dom";
-import { Save, ArrowLeft, Trash2, Plus, Send, X, Settings, MessageSquare } from "lucide-react";
+import { Save, ArrowLeft, Trash2, Plus, Send, X, Settings, MessageSquare, Link2 } from "lucide-react";
 import toast from "react-hot-toast";
 import AdminLayout from "../../components/AdminLayout";
+import PosChargePanel from "../../components/PosChargePanel";
 import API from "../../api";
 
 const categories = [
@@ -304,14 +305,26 @@ export default function ReceiptForm() {
           <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary-500" />
         </div>
       ) : (
-        <div className="max-w-5xl space-y-6">
-          <div className="flex flex-wrap items-center gap-3">
+        <div className="max-w-5xl space-y-3">
+          <div className="flex flex-wrap items-center gap-2">
             <button onClick={() => navigate("/admin/receipts")} className="text-gray-400 hover:text-gray-600 transition-colors">
-              <ArrowLeft size={20} />
+              <ArrowLeft size={18} />
             </button>
-            <h2 className="text-lg font-semibold text-dark-900">
-              {isEdit ? "Edit quote" : isLegacyNew ? "Paper / old quote" : "New quote"}
-            </h2>
+            {isEdit && receipt?.publicAccessToken ? (
+              <button
+                type="button"
+                onClick={() => {
+                  const url = `${window.location.origin}/ticket/${receipt.publicAccessToken}`;
+                  navigator.clipboard.writeText(url).then(
+                    () => toast.success("Customer ticket link copied."),
+                    () => toast.error(url)
+                  );
+                }}
+                className="flex items-center gap-1 text-xs text-primary-600 hover:text-primary-700"
+              >
+                <Link2 size={13} /> Copy ticket link
+              </button>
+            ) : null}
             {isEdit && (
               <button onClick={handleDelete} className="ml-auto flex items-center gap-1 text-sm text-red-500 hover:text-red-600 transition-colors">
                 <Trash2 size={14} /> Delete
@@ -323,8 +336,8 @@ export default function ReceiptForm() {
           <form onSubmit={handleSubmit}>
             <div className="bg-amber-50 border-2 border-amber-200 rounded-lg shadow-lg overflow-hidden" style={receiptFont}>
               {/* Invoice header: number, date, status */}
-              <div className="bg-amber-200/60 px-3 py-3 border-b-2 border-amber-300/50">
-                <div className="flex flex-wrap items-end gap-x-6 gap-y-3">
+              <div className="bg-amber-200/60 px-3 py-1.5 border-b-2 border-amber-300/50">
+                <div className="flex flex-wrap items-end gap-x-5 gap-y-1.5">
                   <span className="text-amber-900 font-bold text-xs tracking-[0.2em] uppercase shrink-0">Quote</span>
 
                   {isLegacyNew ? (
@@ -391,11 +404,11 @@ export default function ReceiptForm() {
                 </div>
               </div>
 
-              <div className="p-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
-                  <div className="md:col-span-2 space-y-2">
-                    <div className="text-[9px] font-bold uppercase tracking-wider text-amber-800/65 border-b border-amber-800/20 pb-0.5 mb-1">Sold To / Customer</div>
-                    <div className="grid grid-cols-2 gap-x-3 gap-y-1.5">
+              <div className="p-3">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mb-2">
+                  <div className="md:col-span-2 space-y-1">
+                    <div className="text-[9px] font-bold uppercase tracking-wider text-amber-800/65 border-b border-amber-800/20 pb-0.5 mb-0.5">Sold To / Customer</div>
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-x-3 gap-y-1">
                       <div>
                         <label className={labelCls}>Name <Req /></label>
                         <input name="customerName" value={form.customerName} onChange={handleChange} required className={fieldCls} placeholder="Customer name" />
@@ -405,12 +418,16 @@ export default function ReceiptForm() {
                         <input name="customerPhone" value={form.customerPhone} onChange={handleChange} required className={fieldCls} placeholder="Phone number" />
                       </div>
                       <div>
+                        <label className={labelCls}>Email</label>
+                        <input name="customerEmail" value={form.customerEmail} onChange={handleChange} type="email" className={fieldCls} placeholder="Email" />
+                      </div>
+                      <div>
                         <label className={labelCls}>Address</label>
                         <input name="customerAddress" value={form.customerAddress} onChange={handleChange} className={fieldCls} placeholder="Address" />
                       </div>
                       <div>
-                        <label className={labelCls}>Email</label>
-                        <input name="customerEmail" value={form.customerEmail} onChange={handleChange} type="email" className={fieldCls} placeholder="Email" />
+                        <label className={labelCls}>Salesperson</label>
+                        <input name="salesperson" value={form.salesperson} onChange={handleChange} className={fieldCls} placeholder="Salesperson" />
                       </div>
                     </div>
                   </div>
@@ -426,10 +443,6 @@ export default function ReceiptForm() {
                       />
                     </div>
                   )}
-                  <div className="md:col-span-2">
-                    <label className={labelCls}>Salesperson</label>
-                    <input name="salesperson" value={form.salesperson} onChange={handleChange} className={fieldCls} placeholder="Salesperson" />
-                  </div>
                 </div>
 
                 {/* Items Table */}
@@ -453,7 +466,7 @@ export default function ReceiptForm() {
                   </div>
 
                   {form.items.map((item, idx) => (
-                    <div key={receipt?.items?.[idx]?._id || `new-${idx}`} className="border-b border-amber-800/10 py-1">
+                    <div key={receipt?.items?.[idx]?._id || `new-${idx}`} className="border-b border-amber-800/10 py-0.5">
                       <div className="grid grid-cols-12 gap-1 items-center px-0.5 hover:bg-amber-100/30 transition-colors group">
                         <div className="col-span-1 text-xs font-bold text-amber-800/40">{idx + 1}</div>
                         <div className="col-span-4">
@@ -534,7 +547,7 @@ export default function ReceiptForm() {
                   ))}
 
                   {/* Totals */}
-                  <div className="grid grid-cols-12 gap-2 mt-4 pt-3 border-t-2 border-amber-800/20">
+                  <div className="grid grid-cols-12 gap-2 mt-2 pt-2 border-t-2 border-amber-800/20">
                     <div className="col-span-7" />
                     <div className="col-span-5 space-y-1">
                       <div className="flex justify-between text-xs">
@@ -559,9 +572,16 @@ export default function ReceiptForm() {
                 </div>
 
                 {/* Notes */}
-                <div className="mt-2 pt-2 border-t border-amber-800/10">
-                  <label className={labelCls}>Internal Notes (staff only)</label>
-                  <textarea name="notes" value={form.notes} onChange={handleChange} rows={2} className={`${fieldCls} resize-y`} placeholder="Internal notes..." />
+                <div className="mt-2 pt-2 border-t border-amber-800/10 space-y-2">
+                  <div>
+                    <label className={labelCls}>Internal Notes (staff only)</label>
+                    <textarea name="notes" value={form.notes} onChange={handleChange} rows={1} className={`${fieldCls} resize-y`} placeholder="Internal notes..." />
+                  </div>
+                  <PosChargePanel
+                    receipt={receipt}
+                    quoteTotal={itemsTotal}
+                    onPaid={(data) => setReceipt(data)}
+                  />
                 </div>
               </div>
 
@@ -591,9 +611,9 @@ export default function ReceiptForm() {
 
           {/* Updates & Messages (edit mode) */}
           {isEdit && receipt && (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
               {/* Receipt-level Updates */}
-              <div className="bg-white rounded-xl border border-gray-100 p-6">
+              <div className="bg-white rounded-xl border border-gray-100 p-4">
                 <h3 className="font-semibold text-dark-900 mb-4">General Updates (visible to customer)</h3>
                 {receipt.updates?.length > 0 ? (
                   <div className="space-y-2 mb-4 max-h-48 overflow-y-auto">
@@ -637,7 +657,7 @@ export default function ReceiptForm() {
               </div>
 
               {/* Messages */}
-              <div className="bg-white rounded-xl border border-gray-100 p-6">
+              <div className="bg-white rounded-xl border border-gray-100 p-4">
                 <h3 className="font-semibold text-dark-900 mb-4">Messages</h3>
                 {receipt.messages?.length > 0 ? (
                   <div className="space-y-2 mb-4 max-h-48 overflow-y-auto">

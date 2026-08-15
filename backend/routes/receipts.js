@@ -339,6 +339,7 @@ router.put("/:id", auth, async (req, res) => {
     body.deletedBy = existing.deletedBy;
     body.deleteReason = existing.deleteReason;
     body.auditEvents = existing.auditEvents;
+    body.payment = existing.payment;
     body.priceEstimate = recalcPriceEstimate(body.items ?? existing.items);
 
     existing.set(body);
@@ -464,6 +465,29 @@ router.delete("/:id", auth, async (req, res) => {
     res.json({ message: "Receipt moved to deleted receipts.", receipt });
   } catch (err) {
     res.status(500).json({ error: err.message });
+  }
+});
+
+router.post("/:id/payment", auth, async (req, res) => {
+  try {
+    const receipt = await Receipt.findOne(activeReceiptFilter({ _id: req.params.id }));
+    if (!receipt) return res.status(404).json({ error: "Receipt not found." });
+    const allowed = ["unpaid", "cash", "terminal", "etransfer", "other"];
+    const method = allowed.includes(req.body.method) ? req.body.method : "unpaid";
+    const amountPaid = Math.round((Number(req.body.amountPaid) || 0) * 100) / 100;
+    receipt.payment = {
+      method,
+      amountPaid,
+      terminalRef: String(req.body.terminalRef || "").trim(),
+      deviceLabel: String(req.body.deviceLabel || "").trim(),
+      paidAt: method === "unpaid" ? null : new Date(),
+      note: String(req.body.note || "").trim(),
+    };
+    receipt.addAuditEvent("payment", req.user?.username || "admin", `${method} ${amountPaid}`.trim());
+    await receipt.save();
+    res.json(receipt);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
   }
 });
 
