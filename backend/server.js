@@ -35,6 +35,13 @@ if (trustProxy === "false" || trustProxy === "0") {
 app.use(
   helmet({
     crossOriginResourcePolicy: { policy: "cross-origin" },
+    contentSecurityPolicy: {
+      useDefaults: true,
+      directives: {
+        "frame-src": ["'self'", "https://www.google.com", "https://maps.google.com"],
+        "img-src": ["'self'", "data:", "blob:", "https:"],
+      },
+    },
   })
 );
 app.use(
