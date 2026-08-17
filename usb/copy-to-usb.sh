@@ -12,8 +12,12 @@ fi
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 echo "Copying $ROOT -> $DEST"
+# -- # Skip AppleDouble forks on FAT/exFAT. Protect volume metadata from --delete.
+export COPYFILE_DISABLE=1
+set +e
 rsync -a --delete \
   --exclude ".git" \
+  --exclude ".cursor" \
   --exclude "node_modules" \
   --exclude "client/build" \
   --exclude "backups/*.zip" \
@@ -23,7 +27,17 @@ rsync -a --delete \
   --exclude "/BACKUP.bat" \
   --exclude "/RESTORE.bat" \
   --exclude "/ENABLE-INTERNET.bat" \
+  --filter "P .Trashes/" \
+  --filter "P .fseventsd/" \
+  --filter "P .TemporaryItems/" \
+  --filter "P System Volume Information/" \
   "$ROOT/" "$DEST/"
+rsync_status=$?
+set -e
+if [ "$rsync_status" -ne 0 ] && [ "$rsync_status" -ne 23 ]; then
+  echo "rsync failed with status $rsync_status"
+  exit "$rsync_status"
+fi
 
 # Stick-root launchers call scripts in usb\ so store staff never have to open that folder.
 cat > "$DEST/SETUP.bat" <<'EOF'
@@ -64,6 +78,11 @@ if exist "usb\ENABLE-INTERNET.ps1" (
 EOF
 
 cp "$ROOT/usb/SETUP-SMS.bat" "$DEST/SETUP-SMS.bat"
+
+if [ ! -f "$DEST/usb/SETUP.ps1" ] || [ ! -f "$DEST/SETUP.bat" ]; then
+  echo "USB copy incomplete: SETUP.bat or usb/SETUP.ps1 is missing."
+  exit 1
+fi
 
 echo
 echo "USB is ready. On the Windows store PC, open the stick and double-click SETUP.bat."
