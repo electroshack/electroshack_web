@@ -1,9 +1,9 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": "create-react-app",
-  "buildCommand": "CI=false npm run build",
-  "outputDirectory": "build",
-  "installCommand": "npm install",
+  "installCommand": "npm install --prefix client",
+  "buildCommand": "CI=false npm run build --prefix client",
+  "outputDirectory": "client/build",
   "rewrites": [
     { "source": "/(.*)", "destination": "/index.html" }
   ],

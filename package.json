@@ -1,0 +1,8 @@
+{
+  "name": "electroshack",
+  "private": true,
+  "description": "Vercel installs and builds the CRA app in client/.",
+  "scripts": {
+    "build": "CI=false npm run build --prefix client"
+  }
+}
