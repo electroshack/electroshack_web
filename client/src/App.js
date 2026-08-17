@@ -2,6 +2,7 @@ import React from "react";
 import { BrowserRouter as Router, Route, Routes, Navigate } from "react-router-dom";
 import { Toaster } from "react-hot-toast";
 import { AuthProvider, useAuth } from "./context/AuthContext";
+import { CheckoutBasketProvider } from "./context/CheckoutBasketContext";
 import Navbar from "./components/Navbar";
 import Footer from "./components/Footer";
 import Home from "./pages/Home";
@@ -54,11 +55,13 @@ function AppRoutes() {
       <Route path="/contact" element={<><Navbar /><Contact /><Footer /></>} />
       <Route path="/shop" element={<><Navbar /><Shop /><Footer /></>} />
       <Route path="/ticket" element={<><Navbar /><TicketLookup /><Footer /></>} />
+      <Route path="/ticket/:token" element={<><Navbar /><TicketLookup /><Footer /></>} />
       <Route path="/login" element={<Login />} />
 
       <Route path="/admin" element={<ProtectedRoute><AdminDashboard /></ProtectedRoute>} />
       <Route path="/admin/receipts" element={<ProtectedRoute><AdminReceipts /></ProtectedRoute>} />
       <Route path="/admin/receipts/new" element={<ProtectedRoute><AdminReceiptForm /></ProtectedRoute>} />
+      <Route path="/admin/receipts/sale/new" element={<ProtectedRoute><AdminReceiptForm /></ProtectedRoute>} />
       <Route path="/admin/receipts/legacy/new" element={<ProtectedRoute><AdminReceiptForm /></ProtectedRoute>} />
       <Route path="/admin/receipts/:id" element={<ProtectedRoute><AdminReceiptForm /></ProtectedRoute>} />
       <Route path="/admin/inventory" element={<ProtectedRoute><AdminInventory /></ProtectedRoute>} />
@@ -77,10 +80,12 @@ function AppRoutes() {
 function App() {
   return (
     <AuthProvider>
+      <CheckoutBasketProvider>
       <Router>
         <Toaster position="top-right" />
         <AppRoutes />
       </Router>
+      </CheckoutBasketProvider>
     </AuthProvider>
   );
 }

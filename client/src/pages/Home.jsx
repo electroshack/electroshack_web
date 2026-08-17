@@ -153,8 +153,8 @@ export default function Home() {
         <div className="absolute inset-0 bg-gradient-to-r from-dark-900/60 to-transparent" />
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-24">
           <div className="max-w-xl">
-            <div className="inline-block px-3 py-1 bg-accent-400/20 border border-accent-400/30 rounded-full mb-6">
-              <span className="text-accent-400 text-xs font-semibold tracking-wider uppercase">Trusted since 2004</span>
+            <div className="mb-6">
+              <span className="es-trusted-banner">Trusted since 2004</span>
             </div>
             <h1 className="text-5xl sm:text-6xl font-extrabold text-white leading-[1.1] tracking-tight">
               You Break It,
@@ -188,15 +188,15 @@ export default function Home() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 -mt-24 relative z-10">
             {[
-              { icon: ShoppingBag, title: "Buy", desc: "Purchase the latest and expertly refurbished tech at great prices", color: "text-primary-500", bg: "bg-primary-50", border: "border-primary-100" },
-              { icon: DollarSign, title: "Sell", desc: "Trade in your old or broken devices for top value", color: "text-accent-600", bg: "bg-accent-50", border: "border-accent-100" },
-              { icon: Wrench, title: "Repair", desc: "Get reliable repairs for a wide range of tech devices", color: "text-primary-500", bg: "bg-primary-50", border: "border-primary-100" },
+              { icon: ShoppingBag, title: "Buy", desc: "New and refurbished tech.", color: "text-primary-500", bg: "bg-primary-50", border: "border-primary-100" },
+              { icon: DollarSign, title: "Sell", desc: "Trade in old or broken devices.", color: "text-accent-600", bg: "bg-accent-50", border: "border-accent-100" },
+              { icon: Wrench, title: "Repair", desc: "Phones, laptops, and computers.", color: "text-primary-500", bg: "bg-primary-50", border: "border-primary-100" },
             ].map((card) => (
               <div
                 key={card.title}
-                className={`bg-white flex items-center gap-5 p-6 rounded-2xl border ${card.border} shadow-lg shadow-gray-100/50 hover:-translate-y-2 transition-all duration-500 group`}
+                className={`bg-white flex items-center gap-4 p-4 rounded-sm border ${card.border} shadow-sm hover:-translate-y-0.5 transition-all duration-200 group`}
               >
-                <div className={`${card.bg} p-4 rounded-xl group-hover:scale-110 transition-transform duration-300`}>
+                <div className={`${card.bg} p-3 rounded-sm`}>
                   <card.icon className={`w-8 h-8 ${card.color}`} strokeWidth={1.5} />
                 </div>
                 <div>
@@ -271,7 +271,7 @@ export default function Home() {
 
             <div className="relative z-10 md:z-30 min-w-0 flex flex-col md:pt-1 text-left">
               <div className="mb-8 flex flex-col gap-4 text-left min-h-[13.5rem] sm:min-h-[12rem] md:min-h-[17rem]">
-                <div className="inline-flex self-start px-3 py-1 bg-primary-50 rounded-full">
+                <div className="inline-flex self-start px-3 py-1 bg-primary-50 rounded-sm">
                   <span className="text-primary-500 text-xs font-semibold tracking-wider uppercase">Our Services</span>
                 </div>
                 <div className="es-carousel-copy-wrap">
@@ -293,7 +293,7 @@ export default function Home() {
                       key={i}
                       type="button"
                       onClick={() => pickSlide(i)}
-                      className={`p-3 rounded-xl transition-all duration-300 ${
+                      className={`p-3 rounded-sm transition-all duration-300 ${
                         i === slideIdx
                           ? "bg-primary-500 text-white shadow-lg shadow-primary-500/30 scale-110"
                           : "bg-white text-gray-400 border border-gray-200 hover:border-primary-300 hover:text-primary-500"
@@ -333,14 +333,14 @@ export default function Home() {
       <section className="py-20 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-12">
-            <div className="inline-block px-3 py-1 bg-accent-50 rounded-full mb-3">
+            <div className="inline-block px-3 py-1 bg-accent-50 rounded-sm mb-3">
               <span className="text-accent-600 text-xs font-semibold tracking-wider uppercase">Testimonials</span>
             </div>
             <h2 className="text-3xl font-extrabold text-dark-900">What Our Customers Say</h2>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             {reviews.map((r) => (
-              <div key={r.name} className="p-6 rounded-2xl bg-gray-50 hover:bg-white border border-transparent hover:border-primary-100 hover:shadow-lg hover:shadow-gray-100/50 transition-all duration-500 group">
+              <div key={r.name} className="p-4 rounded-sm bg-gray-50 hover:bg-white border border-transparent hover:border-primary-100 hover:shadow-sm transition-all duration-200 group">
                 <div className="flex gap-0.5 mb-4">
                   {[...Array(5)].map((_, i) => (
                     <Star key={i} size={16} className="text-accent-400 fill-accent-400" />
@@ -369,6 +369,7 @@ export default function Home() {
             ))}
           </div>
           <p className="mt-8 text-xs text-gray-400 tracking-wider">and more!</p>
+          <p className="mt-2 text-[10px] text-gray-300">Not officially associated with these companies.</p>
         </div>
       </section>
     </main>

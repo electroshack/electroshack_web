@@ -1,13 +1,8 @@
 import React, { useCallback, useRef, useState } from "react";
-import { Upload, X, Image as ImageIcon, Link as LinkIcon, Loader2 } from "lucide-react";
+import { Upload, X, Loader2 } from "lucide-react";
 import toast from "react-hot-toast";
 
-/**
- * Standardize uploaded inventory photos so they look consistent on the storefront:
- *   - max 800x800 with aspect-fit
- *   - centered on a pure-white square (so portrait phones / landscape laptops align)
- *   - re-encoded as JPEG @ ~0.85 (small enough to store inline in MongoDB)
- */
+// ### 800x800 white-square JPEG for Mongo inline photos.
 const TARGET_SIZE = 800;
 const JPEG_QUALITY = 0.85;
 const MAX_BYTES_AFTER = 350 * 1024;
@@ -41,7 +36,7 @@ async function standardizeToSquare(srcDataUrl) {
   ctx.fillStyle = "#ffffff";
   ctx.fillRect(0, 0, TARGET_SIZE, TARGET_SIZE);
 
-  /* Aspect-fit (object-contain) the source onto a 800x800 white background */
+  // - Aspect-fit onto an 800x800 white square.
   const scale = Math.min(TARGET_SIZE / img.width, TARGET_SIZE / img.height);
   const drawW = Math.round(img.width * scale);
   const drawH = Math.round(img.height * scale);
@@ -140,37 +135,20 @@ export default function InventoryImageUploader({ value = [], onChange, max = 1 }
   const slots = Array.from({ length: max }, (_, i) => value[i] ?? null);
 
   return (
-    <div>
-      <div className="flex items-center justify-between mb-2">
-        <p className="text-sm font-medium text-gray-600 flex items-center gap-1.5">
-          <ImageIcon size={14} className="text-primary-500" />
-          {max === 1 ? "Storefront photo" : "Photos for storefront"}
-        </p>
-        <p className="text-[11px] text-gray-400">
-          {max === 1
-            ? `Auto-resized to ${TARGET_SIZE}×${TARGET_SIZE} on a white background`
-            : `Up to ${max} · auto-resized to ${TARGET_SIZE}×${TARGET_SIZE} on a white background`}
-        </p>
-      </div>
-
-      <div className={`grid gap-3 mb-3 ${max === 1 ? "grid-cols-1 max-w-xs" : "grid-cols-2 sm:grid-cols-4"}`}>
+    <div className="w-24 shrink-0">
+      <div className={`grid gap-1 mb-1 ${max === 1 ? "w-24" : "grid-cols-4 w-fit"}`}>
         {slots.map((src, idx) =>
           src ? (
-            <div key={idx} className="group relative aspect-square rounded-xl overflow-hidden border border-gray-200 bg-gray-50">
-              <img src={src} alt="" className="w-full h-full object-contain bg-white" />
+            <div key={idx} className="group relative w-24 h-24 overflow-hidden border border-gray-200 bg-white rounded-sm">
+              <img src={src} alt="" className="w-full h-full object-contain" />
               <button
                 type="button"
                 onClick={() => removeAt(idx)}
-                className="absolute top-1.5 right-1.5 inline-flex items-center justify-center w-7 h-7 rounded-full bg-black/60 text-white opacity-0 group-hover:opacity-100 transition-opacity"
+                className="absolute top-0.5 right-0.5 inline-flex items-center justify-center w-5 h-5 bg-black/60 text-white opacity-0 group-hover:opacity-100"
                 aria-label="Remove photo"
               >
-                <X size={14} />
+                <X size={12} />
               </button>
-              {idx === 0 && max > 1 && (
-                <span className="absolute bottom-1.5 left-1.5 text-[9px] font-bold uppercase tracking-wider bg-primary-500 text-white px-1.5 py-0.5 rounded">
-                  Cover
-                </span>
-              )}
             </div>
           ) : (
             <button
@@ -179,10 +157,9 @@ export default function InventoryImageUploader({ value = [], onChange, max = 1 }
               onClick={() => inputRef.current?.click()}
               onDrop={onDrop}
               onDragOver={(e) => e.preventDefault()}
-              className="aspect-square rounded-xl border-2 border-dashed border-gray-200 bg-gray-50/60 hover:border-primary-300 hover:bg-primary-50/40 transition-colors flex flex-col items-center justify-center text-gray-400 hover:text-primary-500"
+              className="w-24 h-24 border border-dashed border-gray-300 bg-gray-50 hover:border-primary-400 flex items-center justify-center text-gray-400 rounded-sm"
             >
-              {busy ? <Loader2 size={20} className="animate-spin" /> : <Upload size={20} />}
-              <span className="text-[10px] mt-1.5 font-medium uppercase tracking-wider">Add photo</span>
+              {busy ? <Loader2 size={16} className="animate-spin" /> : <Upload size={16} />}
             </button>
           )
         )}
@@ -200,41 +177,19 @@ export default function InventoryImageUploader({ value = [], onChange, max = 1 }
         }}
       />
 
-      <div className="flex flex-wrap items-stretch gap-2">
-        <button
-          type="button"
-          onClick={() => inputRef.current?.click()}
-          disabled={busy || value.length >= max}
-          className="inline-flex items-center gap-2 px-3 py-2 text-xs font-semibold rounded-lg border border-gray-200 bg-white text-gray-700 hover:border-primary-300 hover:text-primary-600 transition-colors disabled:opacity-50"
-        >
-          <Upload size={14} />
-          Upload photo
-        </button>
-        <div className="flex-1 min-w-[220px] flex">
-          <input
-            type="text"
-            placeholder="Or paste an https://… image URL"
-            value={urlInput}
-            onChange={(e) => setUrlInput(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                e.preventDefault();
-                handleAddUrl();
-              }
-            }}
-            className="flex-1 min-w-0 px-3 py-2 text-xs bg-white border border-gray-200 rounded-l-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
-          />
-          <button
-            type="button"
-            onClick={handleAddUrl}
-            disabled={busy || !urlInput.trim() || value.length >= max}
-            className="inline-flex items-center gap-1 px-3 py-2 text-xs font-semibold rounded-r-lg border border-l-0 border-gray-200 bg-gray-50 text-gray-600 hover:bg-primary-500 hover:text-white hover:border-primary-500 transition-colors disabled:opacity-50"
-          >
-            <LinkIcon size={12} />
-            Add URL
-          </button>
-        </div>
-      </div>
+      <input
+        type="text"
+        placeholder="URL"
+        value={urlInput}
+        onChange={(e) => setUrlInput(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") {
+            e.preventDefault();
+            handleAddUrl();
+          }
+        }}
+        className="w-24 px-1 py-0.5 text-[10px] bg-white border border-gray-200 rounded-sm focus:outline-none focus:ring-1 focus:ring-primary-500"
+      />
     </div>
   );
 }

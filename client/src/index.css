@@ -57,6 +57,25 @@ body {
   }
 }
 
+/* ### Home: swallowtail ribbon. Forked ends + 1px maroon outline. */
+.es-trusted-banner {
+  display: inline-block;
+  color: #fff;
+  font-size: 0.6875rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  padding: 0.32rem 1.55rem;
+  line-height: 1.2;
+  background: #dc2626;
+  clip-path: polygon(0 0, 100% 0, calc(100% - 0.62rem) 50%, 100% 100%, 0 100%, 0.62rem 50%);
+  filter:
+    drop-shadow(1px 0 0 #7f1d1d)
+    drop-shadow(-1px 0 0 #7f1d1d)
+    drop-shadow(0 1px 0 #7f1d1d)
+    drop-shadow(0 -1px 0 #7f1d1d);
+}
+
 @keyframes es-train-enter {
   0% {
     transform: translate3d(calc(-50vw - 240px), -50%, 0);
@@ -429,64 +448,5 @@ body {
   .es-carousel-peek-ring--exit-active {
     animation: none !important;
   }
-
-  button:active .es-admin-scan-burst-ring {
-    animation: none !important;
-  }
 }
 
-/* —— Admin sidebar scan: diameter set inline from measured gap (last nav item → user) × 0.8 —— */
-.es-admin-scan-wrap {
-  position: relative;
-  box-sizing: border-box;
-  flex-shrink: 0;
-  overflow: visible;
-}
-.es-admin-scan-rings {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  overflow: visible;
-}
-/* Full-size rings share the button’s bounding circle; scale() pushes the stroke outward past the button */
-.es-admin-scan-burst-ring {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  width: 100%;
-  height: 100%;
-  border-radius: 50%;
-  box-sizing: border-box;
-  border: 2.5px solid #2563eb;
-  background: transparent;
-  opacity: 0;
-  transform: translate(-50%, -50%) scale(1);
-  transform-origin: center center;
-}
-.es-admin-scan-burst-ring--2 {
-  animation-delay: 0.05s;
-}
-.es-admin-scan-burst-ring--3 {
-  animation-delay: 0.1s;
-}
-button:active .es-admin-scan-burst-ring {
-  animation: es-admin-scan-burst-pop 0.52s cubic-bezier(0.33, 1.2, 0.52, 1) forwards;
-}
-@keyframes es-admin-scan-burst-pop {
-  0% {
-    opacity: 1;
-    transform: translate(-50%, -50%) scale(1);
-  }
-  40% {
-    opacity: 1;
-    transform: translate(-50%, -50%) scale(1.24);
-  }
-  66% {
-    opacity: 1;
-    transform: translate(-50%, -50%) scale(1.08);
-  }
-  100% {
-    opacity: 0;
-    transform: translate(-50%, -50%) scale(1);
-  }
-}

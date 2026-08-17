@@ -2,6 +2,22 @@
 
 A modern web-based storefront and point-of-sale (POS) system for Electroshack, replacing the handwritten receipt system with a digital workflow.
 
+## Store PC (USB)
+
+Day-to-day shop use runs on the Windows PC in the back of the store. The database stays on that PC. No Atlas, Cloudflare, Twilio, or extra accounts are required.
+
+1. On the Mac, copy this repo onto a USB stick (so `SETUP.bat` is at the stick root):
+
+   ```bash
+   ./usb/copy-to-usb.sh /Volumes/YOUR-USB-NAME
+   ```
+
+2. Plug the stick into the Windows PC and double-click **SETUP.bat**.
+3. Sign in at http://localhost:5000/login — credentials are in [`usb/README.txt`](usb/README.txt).
+4. After SETUP, the site is this PC and the shop Wi-Fi only. To let customers open ticket links from home, double-click **ENABLE-INTERNET.bat**, add the GoDaddy A record it prints, and forward ports 80/443 to the PC. The database still stays on that machine.
+5. Plug the stick in later and double-click **BACKUP.bat**. Restores use **RESTORE.bat**. Dumps land in `backups\` on the USB.
+6. For customer texts, plug in a USB LTE/GSM modem (SIM in the dongle, not a card reader) and run **SETUP-SMS.bat**. Unsent texts show under Admin → Messages.
+
 ## Live deployment
 
 | Surface | URL |
@@ -50,7 +66,7 @@ Public storefront, admin dashboard with database capacity widget, customer quote
 - **Track Repair** â€” Customers search by receipt number to see status, updates, and send messages
 
 ### Admin Dashboard (POS)
-- **Dashboard** â€” Stats overview, quick actions, recent quotes, and a live database-storage widget (turns yellow at 70% / red at 90% of the Atlas free-tier 512 MiB cap; configurable via `MONGODB_CAP_BYTES`).
+- **Dashboard** â€” Stats overview, quick actions, recent quotes, and a live database-storage widget (turns yellow at 70% / red at 90% of the local disk budget; configurable via `MONGODB_CAP_BYTES`).
 - **Quote management** â€” Full CRUD for digital quotes replacing handwritten invoices.
   - Sequential 6-7 digit quote numbers (ES-YYYY-######)
   - Customer info (name, phone, email, address)
@@ -78,7 +94,7 @@ Public storefront, admin dashboard with database capacity widget, customer quote
 
 - **Frontend**: React 18, React Router v6, Tailwind CSS, Lucide Icons, html5-qrcode
 - **Backend**: Express.js 4, Mongoose 8, JWT Auth (jose), Nodemailer
-- **Database**: MongoDB (with automatic in-memory fallback for development)
+- **Database**: MongoDB on the store PC (`mongodb://127.0.0.1:27017/electroshack`). In-memory mode is opt-in for development only (`ALLOW_IN_MEMORY_DB=true`) and is refused on the store PC.
 - **Build**: Create React App 5 + CRACO
 
 ## Color Scheme
@@ -92,7 +108,7 @@ Public storefront, admin dashboard with database capacity widget, customer quote
 
 ### Prerequisites
 - **Node.js 20+** (LTS recommended)
-- **MongoDB** (optional â€” uses in-memory DB if not available)
+- **MongoDB** locally (required for the store PC; development may set `ALLOW_IN_MEMORY_DB=true`)
 
 ### 1. Install dependencies
 
@@ -106,7 +122,7 @@ cd ../client && npm install
 Copy or edit `backend/.env`:
 
 ```env
-MONGODB_URI=mongodb://localhost:27017/electroshackDB
+MONGODB_URI=mongodb://127.0.0.1:27017/electroshack
 JWT_SECRET=change-this-to-a-long-random-string
 PORT=5000
 
@@ -117,13 +133,17 @@ EMAIL_USER=your@gmail.com
 EMAIL_PASS=your-app-password
 SMTP_FROM=Electroshack <your@gmail.com>
 
-# Where customers access the site (used in email links)
-PUBLIC_SITE_URL=http://localhost:3000
+# Where customers access the site (used in email/SMS receipt links)
+PUBLIC_SITE_URL=http://localhost:5000
 
 # Admin bootstrap
-ADMIN_PASSWORD=admin123
+ADMIN_PASSWORD=change-this-before-install
 # Set to true once to force-reset admin password on next start
 # RESET_ADMIN_PASSWORD=true
+
+# SMS — USB GSM modem (SIM in the dongle). SETUP-SMS.bat writes SMS_MODEM_PORT.
+SMS_MODEM_PORT=
+SMS_MODEM_BAUD=115200
 ```
 
 ### 3. Start development servers
@@ -143,26 +163,26 @@ The CRA dev proxy forwards `/api` requests to the backend automatically.
 ### 4. Default admin login
 
 - **Username**: `admin`
-- **Password**: `admin123` (change immediately in production)
+- **Password**: value of `ADMIN_PASSWORD` (fallback is `admin123` for development only)
 
 ---
 
 ## Database Setup (MongoDB)
 
-### Option A: Local MongoDB
+### Option A: Local MongoDB (recommended for production)
 
 1. Install MongoDB Community Server: https://www.mongodb.com/try/download/community
 2. Start `mongod` (default port 27017)
 3. Set in `backend/.env`:
    ```
-   MONGODB_URI=mongodb://localhost:27017/electroshackDB
+   MONGODB_URI=mongodb://127.0.0.1:27017/electroshack
    ```
 4. Seed admin user:
    ```bash
    cd backend && npm run seed
    ```
 
-### Option B: MongoDB Atlas (Cloud â€” recommended for production)
+### Option B: MongoDB Atlas (legacy/cloud option)
 
 1. Create free cluster at https://www.mongodb.com/atlas
 2. Create a database user (username/password)
@@ -175,9 +195,9 @@ The CRA dev proxy forwards `/api` requests to the backend automatically.
 
 > **Free-tier capacity:** MongoDB Atlas M0 ships with a 512 MiB cap. The admin dashboard exposes a live storage widget (`/api/admin/storage-stats`) that turns yellow above 70% and red above 90% so you get plenty of warning before writes start failing. To monitor a different cap (e.g. after upgrading to M2 / M5), set `MONGODB_CAP_BYTES` on Render. Render free instances sleep after ~15 minutes of inactivity (a quick wake-up on the next request is normal) and bandwidth is metered monthly â€” their dashboard surfaces both.
 
-### Option C: No MongoDB (Development only)
+### Option C: Explicit in-memory DB (development only)
 
-Just start the backend without setting `MONGODB_URI`. It will spin up `mongodb-memory-server` automatically. All data is lost when the server stops.
+Set `ALLOW_IN_MEMORY_DB=true` to intentionally run an ephemeral database. The server no longer falls back to in-memory automatically because losing receipts is unacceptable.
 
 ### Collections
 
@@ -346,7 +366,7 @@ server {
 # Seed admin user (requires MONGODB_URI)
 cd backend && npm run seed
 
-# Reset admin password to admin123
+# Reset admin password to ADMIN_PASSWORD (or admin123 if unset)
 cd backend && npm run reset-admin
 
 # Build frontend for production

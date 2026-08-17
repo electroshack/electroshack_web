@@ -4,10 +4,7 @@ if (process.env.DNS_SERVERS) {
   const list = process.env.DNS_SERVERS.split(",").map((s) => s.trim()).filter(Boolean);
   if (list.length) dns.setServers(list);
 }
-/**
- * Render's free tier has no outbound IPv6. Without this, anything that
- * resolves AAAA before A (e.g. `smtp.office365.com`) fails with ENETUNREACH.
- */
+// # Prefer A records. Some hosts (Render free) have no outbound IPv6.
 if (typeof dns.setDefaultResultOrder === "function") {
   dns.setDefaultResultOrder("ipv4first");
 }
@@ -16,6 +13,7 @@ const mongoose = require("mongoose");
 const cors = require("cors");
 const rateLimit = require("express-rate-limit");
 const helmet = require("helmet");
+const path = require("path");
 
 const app = express();
 
@@ -34,6 +32,13 @@ if (trustProxy === "false" || trustProxy === "0") {
 app.use(
   helmet({
     crossOriginResourcePolicy: { policy: "cross-origin" },
+    contentSecurityPolicy: {
+      useDefaults: true,
+      directives: {
+        "frame-src": ["'self'", "https://www.google.com", "https://maps.google.com"],
+        "img-src": ["'self'", "data:", "blob:", "https:"],
+      },
+    },
   })
 );
 app.use(
@@ -58,8 +63,12 @@ const authLimiter = rateLimit({
 });
 app.use("/api/auth/login", authLimiter);
 
-app.get("/", (req, res) => {
-  res.json({ status: "Electroshack API is running" });
+app.get("/api/health", (req, res) => {
+  res.json({
+    status: "ok",
+    db: mongoose.connection.readyState === 1 ? "connected" : "disconnected",
+    publicSiteUrl: process.env.PUBLIC_SITE_URL || "",
+  });
 });
 
 app.use("/api/auth", require("./routes/auth"));
@@ -75,34 +84,57 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: "Something went wrong!" });
 });
 
+const clientBuildDir = path.join(__dirname, "..", "client", "build");
+app.use(express.static(clientBuildDir));
+app.get("*", (req, res, next) => {
+  if (req.path.startsWith("/api/")) return next();
+  res.sendFile(path.join(clientBuildDir, "index.html"), (err) => {
+    if (err) {
+      res.json({ status: "Electroshack API is running", frontend: "not-built" });
+    }
+  });
+});
+
 async function startServer() {
-  let uri = process.env.MONGODB_URI;
+  const uri = process.env.MONGODB_URI || "mongodb://127.0.0.1:27017/electroshack";
   const { ensureDefaultAdmin } = require("./seedAdmin");
 
   function redact(u) {
     try { return new URL(u).host; } catch { return "(unparseable URI)"; }
   }
   try {
-    await mongoose.connect(uri, { serverSelectionTimeoutMS: 5000 });
+    await mongoose.connect(uri, {
+      serverSelectionTimeoutMS: 8000,
+      connectTimeoutMS: 8000,
+      socketTimeoutMS: 30000,
+    });
     console.log("Connected to MongoDB at", redact(uri));
     await ensureDefaultAdmin();
   } catch (err) {
-    console.log("Local MongoDB not available, starting in-memory database...");
-    const { MongoMemoryServer } = require("mongodb-memory-server");
-    const mongod = await MongoMemoryServer.create();
-    uri = mongod.getUri();
-    await mongoose.connect(uri);
-    console.log("Connected to in-memory MongoDB at", uri);
-    console.log(
-      "NOTE: Data (including users) is lost when the server stops. For persistent login, install/start MongoDB and set MONGODB_URI."
-    );
-    await ensureDefaultAdmin();
-    console.log("Default admin: username admin / password from ADMIN_PASSWORD or admin123");
+    if (process.env.ALLOW_IN_MEMORY_DB === "true" || process.env.ALLOW_IN_MEMORY_DB === "1") {
+      console.warn("[db] ALLOW_IN_MEMORY_DB is enabled. Data will be lost when the server stops.");
+      const { MongoMemoryServer } = require("mongodb-memory-server");
+      const mongod = await MongoMemoryServer.create();
+      const memoryUri = mongod.getUri();
+      await mongoose.connect(memoryUri);
+      console.log("Connected to in-memory MongoDB at", memoryUri);
+      await ensureDefaultAdmin();
+    } else {
+      console.error("[db] Could not connect to MongoDB at", redact(uri));
+      console.error("[db] Start MongoDB locally, or set MONGODB_URI to the correct local server.");
+      console.error("[db] Windows default: mongodb://127.0.0.1:27017/electroshack");
+      console.error("[db] Refusing to start with an in-memory database because it can lose receipts.");
+      console.error(err.message);
+      process.exit(1);
+    }
   }
 
   const PORT = process.env.PORT || 5000;
-  app.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
+  const HOST = process.env.BIND_HOST || "0.0.0.0";
+  app.listen(PORT, HOST, () => {
+    console.log(`Server running on http://${HOST}:${PORT}`);
+    const publicUrl = process.env.PUBLIC_SITE_URL || `http://localhost:${PORT}`;
+    console.log(`Ticket links use PUBLIC_SITE_URL=${publicUrl}`);
   });
 }
 

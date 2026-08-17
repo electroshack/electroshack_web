@@ -8,7 +8,7 @@ const mongoose = require("mongoose");
 const User = require("../models/User");
 
 const DEFAULT_USER = "admin";
-const DEFAULT_PASS = "admin123";
+const DEFAULT_PASS = process.env.ADMIN_PASSWORD || "admin123";
 
 async function connect() {
   let uri = process.env.MONGODB_URI;

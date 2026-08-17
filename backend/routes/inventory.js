@@ -12,6 +12,16 @@ const {
   serialLookupVariants,
   extractStickerFields,
 } = require("../utils/deviceIdentifiers");
+const {
+  applyChange,
+  statusAfterQty,
+  canonicalStockStatus,
+  storefrontFilter,
+  undoEvent,
+  undoLastForItem,
+  recentlyOutOfStock,
+  nameSuggestions,
+} = require("../lib/stock");
 const router = express.Router();
 
 /** Next sequential internal number (digits only). Safe for mixed legacy alphanumeric #s. */
@@ -39,6 +49,9 @@ function normalizeInventoryBody(body) {
   if (typeof body.showOnStorefront === "string") {
     body.showOnStorefront = body.showOnStorefront === "true";
   }
+  if (typeof body.showOnStorefrontWhenEmpty === "string") {
+    body.showOnStorefrontWhenEmpty = body.showOnStorefrontWhenEmpty === "true";
+  }
   if (body.itemNumber != null) body.itemNumber = String(body.itemNumber).trim();
   if (body.barcode != null) body.barcode = String(body.barcode).trim();
   if (body.imei != null) {
@@ -46,6 +59,12 @@ function normalizeInventoryBody(body) {
     body.imei = n.canonical || String(body.imei).trim();
   }
   if (body.serialNumber != null) body.serialNumber = normalizeSerial(body.serialNumber);
+  if (body.status) body.status = canonicalStockStatus(body.status);
+  delete body._id;
+  delete body.__v;
+  delete body.createdAt;
+  delete body.updatedAt;
+  delete body.stockEvents;
   return body;
 }
 
@@ -77,11 +96,8 @@ router.post("/", auth, async (req, res) => {
       body.itemNumber = await allocateNextItemNumber();
     }
     const qty = parseInt(body.quantity, 10);
-    if (Number.isFinite(qty) && qty <= 0) {
-      body.showOnStorefront = false;
-    }
-    if (body.status === "sold") {
-      body.showOnStorefront = false;
+    if (Number.isFinite(qty) && qty <= 0 && !body.status) {
+      body.status = "out-of-stock";
     }
     const item = new Inventory(body);
     await item.save();
@@ -109,7 +125,9 @@ router.get("/", auth, async (req, res) => {
     } = req.query;
 
     const filter = {};
-    if (status) filter.status = status;
+    if (status === "out-of-stock") filter.status = { $in: ["out-of-stock", "sold", "returned"] };
+    else if (status === "in-stock") filter.status = { $in: ["in-stock", "reserved"] };
+    else if (status) filter.status = status;
     if (category) filter.category = category;
     if (condition) filter.condition = condition;
     if (search) {
@@ -170,11 +188,7 @@ router.get("/public-check", async (req, res) => {
   try {
     const [total, storefront, inStock] = await Promise.all([
       Inventory.countDocuments({}),
-      Inventory.countDocuments({
-        status: "in-stock",
-        quantity: { $gt: 0 },
-        showOnStorefront: { $ne: false },
-      }),
+      Inventory.countDocuments(storefrontFilter()),
       Inventory.countDocuments({ status: "in-stock", quantity: { $gt: 0 } }),
     ]);
     res.json({ totalItems: total, inStockListed: inStock, storefrontVisible: storefront });
@@ -187,23 +201,22 @@ router.get("/public-check", async (req, res) => {
 router.get("/storefront", async (req, res) => {
   try {
     const { category, search, page = 1, limit = 20 } = req.query;
-    const filter = {
-      status: "in-stock",
-      quantity: { $gt: 0 },
-      showOnStorefront: { $ne: false },
-    };
-    if (category) filter.category = category;
+    const clauses = [storefrontFilter()];
+    if (category) clauses.push({ category });
     if (search) {
-      filter.$or = [
-        { name: { $regex: search, $options: "i" } },
-        { description: { $regex: search, $options: "i" } },
-      ];
+      clauses.push({
+        $or: [
+          { name: { $regex: search, $options: "i" } },
+          { description: { $regex: search, $options: "i" } },
+        ],
+      });
     }
+    const filter = clauses.length === 1 ? clauses[0] : { $and: clauses };
 
     const skip = (parseInt(page) - 1) * parseInt(limit);
     const [items, total] = await Promise.all([
       Inventory.find(filter)
-        .select("itemNumber name description category condition sellingPrice quantity images")
+        .select("itemNumber name description category condition sellingPrice quantity images status")
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(parseInt(limit)),
@@ -217,6 +230,31 @@ router.get("/storefront", async (req, res) => {
 });
 
 /** Next internal item # that will be assigned on create (preview only). */
+router.get("/recently-out-of-stock", auth, async (req, res) => {
+  try {
+    const limit = Math.min(40, Math.max(1, parseInt(req.query.limit, 10) || 20));
+    const items = await recentlyOutOfStock(limit);
+    res.json({ items });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.get("/name-suggestions", auth, async (req, res) => {
+  try {
+    const items = await nameSuggestions({
+      q: req.query.q,
+      barcode: req.query.barcode,
+      imei: req.query.imei,
+      serial: req.query.serial,
+      limit: req.query.limit,
+    });
+    res.json({ items });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 router.get("/preview-next-number", auth, async (req, res) => {
   try {
     const itemNumber = await peekNextItemNumber();
@@ -274,22 +312,38 @@ router.get("/:id", auth, async (req, res) => {
 
 router.put("/:id", auth, async (req, res) => {
   try {
-    const previous = await Inventory.findById(req.params.id).lean();
-    if (!previous) return res.status(404).json({ error: "Item not found." });
+    const item = await Inventory.findById(req.params.id);
+    if (!item) return res.status(404).json({ error: "Item not found." });
+    const previous = item.toObject();
 
     const update = normalizeInventoryBody({ ...req.body });
-    const qty = parseInt(update.quantity, 10);
-    if (Number.isFinite(qty) && qty <= 0) {
-      update.showOnStorefront = false;
+    const qtyProvided = Object.prototype.hasOwnProperty.call(update, "quantity");
+    const statusProvided = Object.prototype.hasOwnProperty.call(update, "status") && Boolean(update.status);
+    const nextQty = qtyProvided ? parseInt(update.quantity, 10) : item.quantity;
+    const requestedStatus = statusProvided ? update.status : undefined;
+    delete update.quantity;
+    delete update.status;
+
+    Object.assign(item, update);
+
+    let nextStatus = requestedStatus;
+    if (qtyProvided && Number.isFinite(nextQty) && nextQty <= 0 && !statusProvided) {
+      nextStatus = statusAfterQty(item, nextQty);
     }
-    if (update.status === "sold") {
-      update.showOnStorefront = false;
+    if (nextStatus === "sold" || nextStatus === "out-of-stock") {
+      nextStatus = "out-of-stock";
     }
 
-    const item = await Inventory.findByIdAndUpdate(req.params.id, update, {
-      new: true,
-      runValidators: true,
+    const actor = req.user?.username || "admin";
+    const reason = Number.isFinite(nextQty) && nextQty > (previous.quantity || 0) ? "restock" : "manual";
+    const { event } = await applyChange({
+      item,
+      newQuantity: qtyProvided && Number.isFinite(nextQty) ? nextQty : item.quantity,
+      newStatus: nextStatus,
+      reason,
+      actor,
     });
+    if (!event) await item.save();
     await notifyGroceryListMatches(item, previous);
     res.json(item);
   } catch (err) {
@@ -297,6 +351,60 @@ router.put("/:id", auth, async (req, res) => {
       return res.status(400).json({ error: "Item number or barcode already exists." });
     }
     res.status(400).json({ error: err.message });
+  }
+});
+
+router.post("/:id/reserve", auth, async (req, res) => {
+  try {
+    const item = await Inventory.findById(req.params.id);
+    if (!item) return res.status(404).json({ error: "Item not found." });
+    const qty = Math.max(1, parseInt(req.body?.qty, 10) || 1);
+    const reserved = Number(item.reservedQty) || 0;
+    const available = Math.max(0, (Number(item.quantity) || 0) - reserved);
+    if (available < qty) {
+      return res.status(400).json({ error: `Only ${available} available.` });
+    }
+    item.reservedQty = reserved + qty;
+    await item.save();
+    res.json(item);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+router.post("/:id/unreserve", auth, async (req, res) => {
+  try {
+    const item = await Inventory.findById(req.params.id);
+    if (!item) return res.status(404).json({ error: "Item not found." });
+    const qty = Math.max(1, parseInt(req.body?.qty, 10) || 1);
+    item.reservedQty = Math.max(0, (Number(item.reservedQty) || 0) - qty);
+    await item.save();
+    res.json(item);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+router.post("/:id/undo-stock", auth, async (req, res) => {
+  try {
+    const actor = req.user?.username || "admin";
+    const eventId = req.body?.eventId;
+    const { item, event } = eventId
+      ? await undoEvent(eventId, actor)
+      : await undoLastForItem(req.params.id, actor);
+    res.json({ item, event });
+  } catch (err) {
+    res.status(err.status || 400).json({ error: err.message });
+  }
+});
+
+router.post("/undo-stock-event/:eventId", auth, async (req, res) => {
+  try {
+    const actor = req.user?.username || "admin";
+    const { item, event } = await undoEvent(req.params.eventId, actor);
+    res.json({ item, event });
+  } catch (err) {
+    res.status(err.status || 400).json({ error: err.message });
   }
 });
 

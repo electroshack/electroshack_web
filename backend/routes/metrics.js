@@ -24,7 +24,7 @@ function parseRange(query) {
 async function buildSummary(range) {
   const { from, to } = range;
 
-  const receiptMatch = { date: { $gte: from, $lte: to } };
+  const receiptMatch = { date: { $gte: from, $lte: to }, deletedAt: null };
   const receiptAgg = await Receipt.aggregate([
     { $match: receiptMatch },
     {
@@ -62,7 +62,6 @@ async function buildSummary(range) {
   const sales = await Inventory.aggregate([
     {
       $match: {
-        status: "sold",
         dateSold: { $gte: from, $lte: to },
       },
     },
@@ -73,6 +72,31 @@ async function buildSummary(range) {
         saleLines: { $sum: 1 },
       },
     },
+  ]);
+
+  const [receiptsDaily, inventoryDaily] = await Promise.all([
+    Receipt.aggregate([
+      { $match: { date: { $gte: from, $lte: to }, deletedAt: null, status: "completed" } },
+      {
+        $group: {
+          _id: { $dateToString: { format: "%Y-%m-%d", date: "$date" } },
+          revenue: { $sum: "$priceEstimate" },
+          count: { $sum: 1 },
+        },
+      },
+      { $sort: { _id: 1 } },
+    ]),
+    Inventory.aggregate([
+      { $match: { dateSold: { $gte: from, $lte: to } } },
+      {
+        $group: {
+          _id: { $dateToString: { format: "%Y-%m-%d", date: "$dateSold" } },
+          revenue: { $sum: { $multiply: ["$sellingPrice", "$quantity"] } },
+          count: { $sum: 1 },
+        },
+      },
+      { $sort: { _id: 1 } },
+    ]),
   ]);
 
   return {
@@ -88,6 +112,10 @@ async function buildSummary(range) {
       purchaseLineCount: purchases[0]?.purchaseLines || 0,
       moneyInSold: sales[0]?.moneyIn || 0,
       saleLineCount: sales[0]?.saleLines || 0,
+    },
+    daily: {
+      quotes: receiptsDaily.map((d) => ({ date: d._id, revenue: d.revenue, count: d.count })),
+      inventory: inventoryDaily.map((d) => ({ date: d._id, revenue: d.revenue, count: d.count })),
     },
   };
 }
@@ -115,7 +143,6 @@ router.get("/export.xlsx", auth, async (req, res) => {
       .lean();
 
     const soldItems = await Inventory.find({
-      status: "sold",
       dateSold: { $gte: from, $lte: to },
     })
       .sort({ dateSold: -1 })
