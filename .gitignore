@@ -41,5 +41,12 @@ backups/dump-*/
 usb/backups/*.zip
 usb/backups/dump-*/
 
+# Stick-root launchers belong in usb/. copy-to-usb.sh writes them onto the stick.
+/SETUP.bat
+/START.bat
+/BACKUP.bat
+/RESTORE.bat
+/ENABLE-INTERNET.bat
+
 client/.vercel/
 
