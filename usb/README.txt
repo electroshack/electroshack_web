@@ -10,6 +10,9 @@ Copy this whole project onto the USB so SETUP.bat is at the root of the stick.
 
   ./usb/copy-to-usb.sh /Volumes/YOUR-USB-NAME
 
+That copies SETUP.bat, START.bat, BACKUP.bat, RESTORE.bat, ENABLE-INTERNET.bat,
+and SETUP-SMS.bat to the root of the stick (from the usb\ folder).
+
 WHAT TO DO ON THE STORE PC
 --------------------------
 1. Plug this USB into the Windows 10/11 PC.
@@ -19,11 +22,13 @@ WHAT TO DO ON THE STORE PC
 5. Wait. First run installs Node.js + MongoDB, copies the app, and starts it.
 6. Browser should open http://localhost:5000
 
-After that, the app starts when someone signs into Windows.
+After that, the app lives on this PC at C:\Electroshack. Unplug the USB.
+It starts when someone signs into Windows. Desktop shortcut: Electroshack.
 
 If the app is already installed and you just want to open it:
 
   Double-click START.bat
+  or the Electroshack icon on the Desktop (no USB needed)
 
 LOCAL LOGIN (this USB is the key)
 ---------------------------------
@@ -55,6 +60,23 @@ the GoDaddy A record.
 
 No Cloudflare, Vercel, Twilio, or Atlas is required for this.
 
+SMS (USB CELLULAR MODEM)
+------------------------
+A SIM card reader cannot send texts. Buy a USB LTE/GSM stick with a SIM slot
+(the kind that shows up as a COM port in Windows). Put the shop SIM in that
+dongle, plug it into this PC, then:
+
+  Double-click SETUP-SMS.bat
+
+It lists COM ports, writes SMS_MODEM_PORT into usb\credentials.env (and into
+C:\Electroshack\app\backend\.env if the app is already installed), and can send
+a test text.
+
+Receipts and grocery in-stock alerts then text the customer phone. If the SIM
+stick is missing or the send fails, the UI reports:
+Message failed to send due to SIM issue. Retry from Admin → Messages after
+the stick is plugged in.
+
 BACKUPS
 -------
 Keep this USB in the shop. When you want a backup, plug it in and:
@@ -84,6 +106,7 @@ with SETUP.bat then RESTORE.bat.
 
 NO EXTRA ACCOUNTS REQUIRED
 --------------------------
-Email/SMS still work later if you add keys to
+Email still works later if you add keys to
 C:\Electroshack\app\backend\.env
-They are optional. The store runs without them.
+They are optional. The store runs without them. SMS uses the USB modem after
+SETUP-SMS.bat.

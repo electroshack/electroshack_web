@@ -16,6 +16,7 @@ Day-to-day shop use runs on the Windows PC in the back of the store. The databas
 3. Sign in at http://localhost:5000/login — credentials are in [`usb/README.txt`](usb/README.txt).
 4. After SETUP, the site is this PC and the shop Wi-Fi only. To let customers open ticket links from home, double-click **ENABLE-INTERNET.bat**, add the GoDaddy A record it prints, and forward ports 80/443 to the PC. The database still stays on that machine.
 5. Plug the stick in later and double-click **BACKUP.bat**. Restores use **RESTORE.bat**. Dumps land in `backups\` on the USB.
+6. For customer texts, plug in a USB LTE/GSM modem (SIM in the dongle, not a card reader) and run **SETUP-SMS.bat**. Unsent texts show under Admin → Messages.
 
 ## Live deployment
 
@@ -140,11 +141,9 @@ ADMIN_PASSWORD=change-this-before-install
 # Set to true once to force-reset admin password on next start
 # RESET_ADMIN_PASSWORD=true
 
-# SMS (optional)
-TWILIO_ACCOUNT_SID=
-TWILIO_AUTH_TOKEN=
-TWILIO_MESSAGING_SERVICE_SID=
-TWILIO_FROM_NUMBER=
+# SMS — USB GSM modem (SIM in the dongle). SETUP-SMS.bat writes SMS_MODEM_PORT.
+SMS_MODEM_PORT=
+SMS_MODEM_BAUD=115200
 ```
 
 ### 3. Start development servers

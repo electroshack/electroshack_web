@@ -181,7 +181,7 @@ export default function TicketLookup() {
             <div className="bg-white rounded-2xl border border-gray-200 p-6 mb-6 shadow-sm">
               <div className="flex items-start justify-between mb-4">
                 <div>
-                  <h2 className="text-xl font-extrabold text-dark-900">Quote #{ticket.receiptNumber}</h2>
+                  <h2 className="text-xl font-extrabold text-dark-900">{ticket.documentType === "receipt" ? "Receipt" : "Quote"} #{ticket.receiptNumber}</h2>
                   <p className="text-sm text-gray-500 mt-0.5">{ticket.customerName} &mdash; {new Date(ticket.date).toLocaleDateString()}</p>
                 </div>
                 <span className={`px-3 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider ${overallStatus?.color}`}>
@@ -189,12 +189,22 @@ export default function TicketLookup() {
                 </span>
               </div>
 
-              {ticket.priceEstimate > 0 && (
+              {ticket.priceEstimate > 0 && ticket.documentType === "receipt" && (
                 <div className="flex items-center justify-between rounded-xl bg-primary-50 border border-primary-100 px-4 py-3 mb-4">
                   <div>
-                    <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-primary-700">Estimated quote</p>
-                    <p className="text-[10px] text-gray-500 mt-0.5">Estimate only — final price may vary after diagnosis. This is a quote, not a tax invoice.</p>
+                    <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-primary-700">Total</p>
+                    {Number(ticket.hst) > 0 ? (
+                      <p className="text-[10px] text-gray-500 mt-0.5">
+                        Subtotal ${Number(ticket.subtotal || ticket.priceEstimate).toFixed(2)} · HST ${Number(ticket.hst).toFixed(2)}
+                      </p>
+                    ) : null}
                   </div>
+                  <p className="text-2xl font-extrabold text-primary-600 font-mono tabular-nums">${Number(ticket.total || ticket.priceEstimate).toFixed(2)}</p>
+                </div>
+              )}
+              {ticket.priceEstimate > 0 && ticket.documentType !== "receipt" && (
+                <div className="flex items-center justify-between rounded-xl bg-primary-50 border border-primary-100 px-4 py-3 mb-4">
+                  <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-primary-700">Quote</p>
                   <p className="text-2xl font-extrabold text-primary-600 font-mono tabular-nums">${Number(ticket.priceEstimate).toFixed(2)}</p>
                 </div>
               )}
@@ -202,7 +212,7 @@ export default function TicketLookup() {
               {/* Overall progress */}
               {progressStep >= 0 && overallStatus?.step !== -1 && (
                 <div className="pt-4 border-t border-gray-100">
-                  <p className="text-[11px] text-gray-500 mb-2">Progress uses your ticket and each repair line.</p>
+                  <p className="text-[11px] text-gray-500 mb-2">Progress</p>
                   <div className="flex items-center gap-1">
                     {["Received", "Diagnosing", "Parts", "Repairing", "Ready", "Done"].map((label, i) => (
                       <React.Fragment key={label}>

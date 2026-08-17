@@ -123,6 +123,27 @@ $nodeExe = (Get-Command node).Source
 schtasks /Create /TN "Electroshack Local Server" /TR "`"$startCmdPath`"" /SC ONLOGON /RL HIGHEST /F | Out-Null
 Write-Log "Registered Windows logon task: Electroshack Local Server"
 
+# - PC-local launcher so the USB can be unplugged. START.bat and a Desktop shortcut point here.
+Copy-Item (Join-Path $UsbDir "START.bat") (Join-Path $InstallRoot "START.bat") -Force
+New-Item -ItemType Directory -Force -Path (Join-Path $BackendDir "scripts") | Out-Null
+Copy-Item (Join-Path $UsbDir "send-at-sms.ps1") (Join-Path $BackendDir "scripts\send-at-sms.ps1") -Force
+$Wsh = New-Object -ComObject WScript.Shell
+$shortcutPaths = @(
+  (Join-Path $env:PUBLIC "Desktop\Electroshack.lnk"),
+  (Join-Path $env:ProgramData "Microsoft\Windows\Start Menu\Programs\Electroshack.lnk")
+)
+foreach ($lnk in $shortcutPaths) {
+  $dir = Split-Path $lnk
+  if (-not (Test-Path $dir)) { New-Item -ItemType Directory -Force -Path $dir | Out-Null }
+  $sc = $Wsh.CreateShortcut($lnk)
+  $sc.TargetPath = Join-Path $InstallRoot "START.bat"
+  $sc.WorkingDirectory = $InstallRoot
+  $sc.WindowStyle = 7
+  $sc.Description = "Electroshack store PC"
+  $sc.Save()
+}
+Write-Log "Installed START.bat and Desktop / Start Menu shortcuts on this PC"
+
 netsh advfirewall firewall delete rule name="Electroshack TCP 5000" 2>$null | Out-Null
 netsh advfirewall firewall add rule name="Electroshack TCP 5000" dir=in action=allow protocol=TCP localport=5000 | Out-Null
 Write-Log "Opened Windows Firewall for port 5000 (shop LAN)"
@@ -132,10 +153,10 @@ Start-Process -FilePath $startCmdPath
 Start-Sleep -Seconds 5
 Start-Process "http://localhost:5000"
 
-Write-Log "Setup finished. Login with the credentials in usb\README.txt"
+Write-Log "Setup finished. The app lives on this PC at C:\Electroshack. You can unplug the USB."
 Write-Host ""
-Write-Host "Open http://localhost:5000"
+Write-Host "Open http://localhost:5000  (or the Electroshack icon on the Desktop)"
 Write-Host "Admin login is in usb\README.txt on this USB stick."
-Write-Host "Backups go into backups\ on this USB. Use BACKUP.bat / RESTORE.bat."
+Write-Host "The site starts when someone signs into Windows. The USB is only for SETUP, backups, and SMS port setup."
 Write-Host ""
 Read-Host "Press Enter to close"

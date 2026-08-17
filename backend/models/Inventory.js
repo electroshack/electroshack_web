@@ -46,15 +46,33 @@ const InventorySchema = new mongoose.Schema(
     saleReceiptNumber: { type: String, default: "" },
 
     quantity: { type: Number, default: 1 },
+    reservedQty: { type: Number, default: 0 },
+    // - Writes are in-stock | out-of-stock. sold/reserved/returned remain for old docs.
     status: {
       type: String,
-      enum: ["in-stock", "sold", "reserved", "returned"],
+      enum: ["in-stock", "out-of-stock", "sold", "reserved", "returned"],
       default: "in-stock",
     },
 
     showOnStorefront: { type: Boolean, default: true },
+    /** Keep listing on the shop when qty hits 0 (greyed / “out of stock”). Hidden by default. */
+    showOnStorefrontWhenEmpty: { type: Boolean, default: false },
     images: [{ type: String }],
     notes: { type: String, default: "" },
+
+    stockEvents: [
+      {
+        eventId: { type: mongoose.Schema.Types.ObjectId, ref: "StockEvent" },
+        actor: { type: String, default: "staff" },
+        reason: { type: String, enum: ["sale", "manual", "undo", "restock"] },
+        oldQuantity: Number,
+        newQuantity: Number,
+        oldStatus: String,
+        newStatus: String,
+        at: { type: Date, default: Date.now },
+        _id: false,
+      },
+    ],
   },
   { timestamps: true }
 );

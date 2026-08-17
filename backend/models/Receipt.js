@@ -40,6 +40,9 @@ const LineItemSchema = new mongoose.Schema({
   },
   updates: [ItemUpdateSchema],
   notes: { type: String, default: "" },
+  /** Optional link to an inventory row. Unlinked lines (repairs, one-offs) do not touch stock. */
+  inventoryItemId: { type: mongoose.Schema.Types.ObjectId, ref: "Inventory", default: null },
+  stockQty: { type: Number, default: 1 },
 });
 
 const CustomerMessageSchema = new mongoose.Schema({
@@ -99,13 +102,20 @@ const ReceiptSchema = new mongoose.Schema(
     terms: { type: String, default: "" },
     salesperson: { type: String, default: "" },
 
+    // # quote = untaxed. receipt = sale with HST.
+    documentType: {
+      type: String,
+      enum: ["quote", "receipt"],
+      default: "quote",
+      index: true,
+    },
+
     items: [LineItemSchema],
 
-    /**
-     * Quoted total — sum of line item prices. We no longer charge or store taxes;
-     * `priceEstimate` is the customer-facing quote shown on screen and in emails.
-     */
     priceEstimate: { type: Number, default: 0 },
+    subtotal: { type: Number, default: 0 },
+    hst: { type: Number, default: 0 },
+    total: { type: Number, default: 0 },
 
     status: {
       type: String,
@@ -138,6 +148,8 @@ const ReceiptSchema = new mongoose.Schema(
       deviceLabel: { type: String, default: "" },
       paidAt: { type: Date, default: null },
       note: { type: String, default: "" },
+      stockApplied: { type: Boolean, default: false },
+      stockEventIds: [{ type: mongoose.Schema.Types.ObjectId, ref: "StockEvent" }],
     },
 
     publicAccessToken: {

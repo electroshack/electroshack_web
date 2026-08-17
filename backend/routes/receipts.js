@@ -3,7 +3,12 @@ const Receipt = require("../models/Receipt");
 const { auth } = require("../middleware/auth");
 const { nextStandardReceiptNumber, peekNextStandardReceiptNumber, generateLegacyReceiptNumber } = require("../utils/receiptNumbers");
 const { sendReceiptConfirmationEmail, sendReceiptUpdateEmail } = require("../lib/email");
-const { sendReceiptConfirmationSms, sendReceiptUpdateSms } = require("../lib/sms");
+const { sendReceiptConfirmationSms, sendReceiptUpdateSms, sendReceiptPaidSms } = require("../lib/sms");
+const {
+  applySaleFromReceipt,
+  undoSaleFromReceipt,
+} = require("../lib/stock");
+const { applyDocumentTotals, isSaleOnly } = require("../lib/tax");
 const router = express.Router();
 
 function publicTicketBaseUrl() {
@@ -37,7 +42,11 @@ function publicReceiptPayload(receipt) {
     customerName: receipt.customerName,
     status: receipt.status,
     date: receipt.date,
+    documentType: receipt.documentType || "quote",
     priceEstimate: receipt.priceEstimate,
+    subtotal: receipt.subtotal,
+    hst: receipt.hst,
+    total: receipt.total,
     items: receipt.items.map((it) => ({
       _id: it._id,
       description: it.description,
@@ -75,14 +84,22 @@ async function sendCustomerNotifications({ receipt, type, message = "" }) {
         : sendReceiptUpdateEmail({ ...emailParams, status: receipt.status, message })
       : Promise.resolve({ sent: false, reason: "no-email" }),
     receipt.customerPhone && String(receipt.customerPhone).trim()
-      ? type === "confirmation"
-        ? sendReceiptConfirmationSms({ to: receipt.customerPhone, receiptNumber: receipt.receiptNumber, trackUrl })
+      ? type === "confirmation" && receipt.documentType === "receipt"
+        ? Promise.resolve({ sent: false, reason: "receipt-sms-on-payment" })
+        : type === "confirmation"
+        ? sendReceiptConfirmationSms({
+            to: receipt.customerPhone,
+            receiptNumber: receipt.receiptNumber,
+            trackUrl,
+            relatedId: String(receipt._id),
+          })
         : sendReceiptUpdateSms({
             to: receipt.customerPhone,
             receiptNumber: receipt.receiptNumber,
             statusLabel: STATUS_LABELS[receipt.status] || receipt.status,
             message,
             trackUrl,
+            relatedId: String(receipt._id),
           })
       : Promise.resolve({ sent: false, reason: "no-phone" }),
   ]);
@@ -90,7 +107,7 @@ async function sendCustomerNotifications({ receipt, type, message = "" }) {
   if (!emailNotify?.sent && emailNotify?.reason !== "no-email") {
     console.warn("[receipt] email skipped:", emailNotify?.reason || emailNotify);
   }
-  if (!smsNotify?.sent && smsNotify?.reason !== "no-phone" && smsNotify?.reason !== "twilio-not-configured") {
+  if (!smsNotify?.sent && smsNotify?.reason !== "no-phone" && smsNotify?.reason !== "receipt-sms-on-payment") {
     console.warn("[receipt] sms skipped:", smsNotify?.reason || smsNotify);
   }
   return { emailNotify, smsNotify };
@@ -104,11 +121,15 @@ function stripTaxFields(body) {
   return body;
 }
 
-/** Quote total = sum of line prices. Stored in `priceEstimate`. */
-function recalcPriceEstimate(items) {
-  if (!Array.isArray(items)) return 0;
-  const sum = items.reduce((s, it) => s + (Number(it?.price) || 0), 0);
-  return Math.round(sum * 100) / 100;
+function sanitizeLineItems(items) {
+  if (!Array.isArray(items)) return items;
+  return items.map((it) => {
+    const copy = { ...it };
+    if (!copy.inventoryItemId) copy.inventoryItemId = null;
+    const qty = parseInt(copy.stockQty, 10);
+    copy.stockQty = Number.isFinite(qty) && qty > 0 ? qty : 1;
+    return copy;
+  });
 }
 
 router.post("/", auth, async (req, res) => {
@@ -127,7 +148,12 @@ router.post("/", auth, async (req, res) => {
       }
     }
     body.receiptKind = kind;
-    body.priceEstimate = recalcPriceEstimate(body.items);
+    if (Array.isArray(body.items)) body.items = sanitizeLineItems(body.items);
+    body.documentType = body.documentType === "receipt" ? "receipt" : "quote";
+    if (body.documentType === "receipt" && !isSaleOnly(body.items)) {
+      return res.status(400).json({ error: "Receipts are sale-only. Use a quote for repairs." });
+    }
+    applyDocumentTotals(body);
 
     const receipt = new Receipt(body);
     receipt.addAuditEvent("created", req.user?.username || "admin");
@@ -340,7 +366,13 @@ router.put("/:id", auth, async (req, res) => {
     body.deleteReason = existing.deleteReason;
     body.auditEvents = existing.auditEvents;
     body.payment = existing.payment;
-    body.priceEstimate = recalcPriceEstimate(body.items ?? existing.items);
+    if (Array.isArray(body.items)) body.items = sanitizeLineItems(body.items);
+    else body.items = existing.items;
+    body.documentType = existing.documentType === "receipt" || body.documentType === "receipt" ? "receipt" : (existing.documentType || "quote");
+    if (body.documentType === "receipt" && !isSaleOnly(body.items)) {
+      return res.status(400).json({ error: "Receipts are sale-only. Use a quote for repairs." });
+    }
+    applyDocumentTotals(body);
 
     existing.set(body);
     existing.addAuditEvent("updated", req.user?.username || "admin", notifyCustomer ? "notify-customer" : "");
@@ -475,6 +507,20 @@ router.post("/:id/payment", auth, async (req, res) => {
     const allowed = ["unpaid", "cash", "terminal", "etransfer", "other"];
     const method = allowed.includes(req.body.method) ? req.body.method : "unpaid";
     const amountPaid = Math.round((Number(req.body.amountPaid) || 0) * 100) / 100;
+    const actor = req.user?.username || "admin";
+    const wasPaid = receipt.payment?.method && receipt.payment.method !== "unpaid";
+    const stockApplied = Boolean(receipt.payment?.stockApplied);
+    let stockEventIds = Array.isArray(receipt.payment?.stockEventIds) ? [...receipt.payment.stockEventIds] : [];
+
+    if (method !== "unpaid" && !stockApplied) {
+      const { applied } = await applySaleFromReceipt(receipt, actor);
+      stockEventIds = applied;
+    }
+    if (method === "unpaid" && stockApplied) {
+      await undoSaleFromReceipt(receipt, actor);
+      stockEventIds = [];
+    }
+
     receipt.payment = {
       method,
       amountPaid,
@@ -482,10 +528,29 @@ router.post("/:id/payment", auth, async (req, res) => {
       deviceLabel: String(req.body.deviceLabel || "").trim(),
       paidAt: method === "unpaid" ? null : new Date(),
       note: String(req.body.note || "").trim(),
+      stockApplied: method !== "unpaid",
+      stockEventIds,
     };
-    receipt.addAuditEvent("payment", req.user?.username || "admin", `${method} ${amountPaid}`.trim());
+    const payNote = method === "unpaid" && wasPaid ? "unpaid (stock restored)" : `${method} ${amountPaid}`.trim();
+    receipt.addAuditEvent("payment", actor, payNote);
     await receipt.save();
-    res.json(receipt);
+
+    let smsNotify = { sent: false, reason: "not-attempted" };
+    if (method !== "unpaid" && receipt.documentType === "receipt") {
+      try {
+        await saveTokenIfMissing(receipt);
+        smsNotify = await sendReceiptPaidSms({
+          to: receipt.customerPhone,
+          receiptNumber: receipt.receiptNumber,
+          total: receipt.total || receipt.priceEstimate,
+          trackUrl: publicTicketUrl(receipt),
+          relatedId: String(receipt._id),
+        });
+      } catch (e) {
+        smsNotify = { sent: false, reason: e?.message || String(e) };
+      }
+    }
+    res.json({ ...receipt.toObject(), smsNotify });
   } catch (err) {
     res.status(400).json({ error: err.message });
   }

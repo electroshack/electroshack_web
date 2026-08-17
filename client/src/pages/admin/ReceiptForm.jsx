@@ -4,6 +4,8 @@ import { Save, ArrowLeft, Trash2, Plus, Send, X, Settings, MessageSquare, Link2 
 import toast from "react-hot-toast";
 import AdminLayout from "../../components/AdminLayout";
 import PosChargePanel from "../../components/PosChargePanel";
+import QuoteStockPicker from "../../components/QuoteStockPicker";
+import { useCheckoutBasket } from "../../context/CheckoutBasketContext";
 import API from "../../api";
 
 const categories = [
@@ -28,15 +30,39 @@ const statuses = [
   { value: "cancelled", label: "Cancelled" },
 ];
 
-const emptyItem = { description: "", category: "repair", price: "", status: "received", notes: "" };
+const emptyItem = { description: "", category: "repair", price: "", status: "received", notes: "", inventoryItemId: "", stockQty: 1 };
 
 function roundMoney(n) {
   return Math.round((Number(n) || 0) * 100) / 100;
 }
 
+function lineAmount(it) {
+  return (parseFloat(it.price) || 0) * Math.max(1, parseInt(it.stockQty, 10) || 1);
+}
+
+function itemsSubtotal(items) {
+  return roundMoney((items || []).reduce((sum, it) => sum + lineAmount(it), 0));
+}
+
+const HST_RATE = 0.13;
+
+function basketToItems(lines) {
+  if (!Array.isArray(lines) || lines.length === 0) return null;
+  return lines.map((l) => ({
+    description: l.description || "",
+    category: l.category || "other",
+    price: l.price || "",
+    status: "received",
+    notes: "",
+    inventoryItemId: l.inventoryItemId || "",
+    stockQty: l.stockQty || 1,
+  }));
+}
+
 const emptyForm = {
   receiptNumber: "",
   receiptKind: "standard",
+  documentType: "quote",
   legacyNote: "",
   customerName: "",
   customerPhone: "",
@@ -58,7 +84,12 @@ export default function ReceiptForm() {
   const navigate = useNavigate();
   const location = useLocation();
   const isLegacyNew = !isEdit && location.pathname.includes("/legacy/");
-  const [form, setForm] = useState(emptyForm);
+  const isSaleNew = !isEdit && location.pathname.includes("/sale/");
+  const { consume, count: basketCount } = useCheckoutBasket();
+  const [form, setForm] = useState(() => ({
+    ...emptyForm,
+    documentType: isSaleNew ? "receipt" : "quote",
+  }));
   const [receipt, setReceipt] = useState(null);
   const [loading, setLoading] = useState(isEdit);
   const [saving, setSaving] = useState(false);
@@ -80,6 +111,8 @@ export default function ReceiptForm() {
             ? data.items.map((it) => ({
                 ...it,
                 price: it.price || "",
+                inventoryItemId: it.inventoryItemId || "",
+                stockQty: it.stockQty || 1,
               }))
             : [{ ...emptyItem }];
           const sub = itemsMapped.reduce((sum, it) => sum + (parseFloat(it.price) || 0), 0);
@@ -94,6 +127,7 @@ export default function ReceiptForm() {
             date: data.date ? new Date(data.date).toISOString().split("T")[0] : new Date().toISOString().split("T")[0],
             salesperson: data.salesperson || "",
             items: itemsMapped,
+            documentType: data.documentType || "quote",
             priceEstimate: data.priceEstimate ?? roundMoney(sub),
             status: data.status || "received",
             notes: data.notes || "",
@@ -117,6 +151,20 @@ export default function ReceiptForm() {
       .catch(() => {});
   }, [isEdit, isLegacyNew]);
 
+  useEffect(() => {
+    if (isEdit) return;
+    const fromState = basketToItems(location.state?.basketLines);
+    if (!fromState) return;
+    const sub = itemsSubtotal(fromState);
+    setForm((f) => ({
+      ...f,
+      documentType: isSaleNew ? "receipt" : f.documentType || "quote",
+      items: fromState,
+      priceEstimate: isSaleNew ? roundMoney(sub * (1 + HST_RATE)) : sub,
+    }));
+    navigate({ pathname: location.pathname, search: location.search }, { replace: true, state: {} });
+  }, [isEdit, isSaleNew, location.pathname, location.search, location.state, navigate]);
+
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value });
   };
@@ -124,8 +172,8 @@ export default function ReceiptForm() {
   const handleItemChange = (idx, field, value) => {
     const items = [...form.items];
     items[idx] = { ...items[idx], [field]: value };
-    if (field === "price") {
-      const sub = items.reduce((sum, it) => sum + (parseFloat(it.price) || 0), 0);
+    if (field === "price" || field === "stockQty") {
+      const sub = itemsSubtotal(items);
       setForm({ ...form, items, priceEstimate: roundMoney(sub) });
       return;
     }
@@ -146,7 +194,9 @@ export default function ReceiptForm() {
     const sent = [];
     const failed = [];
     if (data?.smsNotify?.sent) sent.push("text");
-    else if (data?.smsNotify && !["no-phone"].includes(data.smsNotify.reason)) failed.push(`text: ${data.smsNotify.reason}`);
+    else if (data?.smsNotify && !["no-phone", "receipt-sms-on-payment", "not-attempted", "invalid-phone"].includes(data.smsNotify.reason)) {
+      toast.error("Message failed to send due to SIM issue");
+    }
     if (data?.emailNotify?.sent) sent.push("email");
     else if (data?.emailNotify && !["no-email"].includes(data.emailNotify.reason)) failed.push(`email: ${data.emailNotify.reason}`);
 
@@ -157,14 +207,14 @@ export default function ReceiptForm() {
 
   const addItem = () => {
     const items = [...form.items, { ...emptyItem }];
-    const sub = items.reduce((sum, it) => sum + (parseFloat(it.price) || 0), 0);
+    const sub = itemsSubtotal(items);
     setForm({ ...form, items, priceEstimate: roundMoney(sub) });
   };
 
   const removeItem = (idx) => {
     if (form.items.length <= 1) return;
     const items = form.items.filter((_, i) => i !== idx);
-    const sub = items.reduce((sum, it) => sum + (parseFloat(it.price) || 0), 0);
+    const sub = itemsSubtotal(items);
     setForm({ ...form, items, priceEstimate: roundMoney(sub) });
   };
 
@@ -172,11 +222,17 @@ export default function ReceiptForm() {
     e.preventDefault();
     setSaving(true);
     try {
-      const sub = form.items.reduce((sum, it) => sum + (parseFloat(it.price) || 0), 0);
+      const sub = itemsSubtotal(form.items);
       const payload = {
         ...form,
+        documentType: isSaleNew || form.documentType === "receipt" ? "receipt" : "quote",
         date: form.date ? new Date(form.date) : new Date(),
-        items: form.items.map((it) => ({ ...it, price: parseFloat(it.price) || 0 })),
+        items: form.items.map((it) => ({
+          ...it,
+          price: parseFloat(it.price) || 0,
+          inventoryItemId: it.inventoryItemId || null,
+          stockQty: parseInt(it.stockQty, 10) || 1,
+        })),
         priceEstimate: roundMoney(sub),
       };
       if (!isEdit) {
@@ -196,10 +252,11 @@ export default function ReceiptForm() {
         if (saveNotify) payload.notifyCustomer = true;
         const { data } = await API.put(`/receipts/${id}`, payload);
         setReceipt(data);
-        showNotificationResult(data, saveNotify ? "Quote updated." : "Quote updated!");
+        showNotificationResult(data, saveNotify ? "Saved." : "Saved.");
       } else {
         const { data } = await API.post("/receipts", payload);
-        showNotificationResult(data, `Quote ${data.receiptNumber} created!`);
+        const noun = payload.documentType === "receipt" ? "Receipt" : "Quote";
+        showNotificationResult(data, `${noun} ${data.receiptNumber} created!`);
         navigate("/admin/receipts");
       }
     } catch (err) {
@@ -283,18 +340,24 @@ export default function ReceiptForm() {
   const labelCls = "block text-[9px] font-bold uppercase tracking-wider text-amber-800/55 mb-0";
   const receiptFont = { fontFamily: '"IBM Plex Mono", ui-monospace, Consolas, monospace' };
 
-  const itemsTotal = form.items.reduce((sum, it) => sum + (parseFloat(it.price) || 0), 0);
+  const itemsTotal = itemsSubtotal(form.items);
+  const isReceiptDoc = form.documentType === "receipt" || isSaleNew;
+  const hstAmount = isReceiptDoc ? roundMoney(itemsTotal * HST_RATE) : 0;
+  const grandTotal = roundMoney(itemsTotal + hstAmount);
+  const docNoun = isReceiptDoc ? "Receipt" : "Quote";
 
   return (
     <AdminLayout
       title={
         isEdit ? (
           <>
-            <span className="text-dark-900">Quote </span>
+            <span className="text-dark-900">{docNoun} </span>
             <span className="text-red-600 font-bold">{form.receiptNumber}</span>
           </>
         ) : isLegacyNew ? (
           "Log historical quote"
+        ) : isSaleNew ? (
+          "New receipt"
         ) : (
           "New quote"
         )
@@ -310,6 +373,24 @@ export default function ReceiptForm() {
             <button onClick={() => navigate("/admin/receipts")} className="text-gray-400 hover:text-gray-600 transition-colors">
               <ArrowLeft size={18} />
             </button>
+            {!isEdit && basketCount > 0 ? (
+              <button
+                type="button"
+                onClick={() => {
+                  const mapped = basketToItems(consume());
+                  if (!mapped) return;
+                  setForm((f) => ({
+                    ...f,
+                    items: mapped,
+                    priceEstimate: itemsSubtotal(mapped),
+                  }));
+                  toast.success("Basket imported.");
+                }}
+                className="text-xs font-medium text-primary-600 hover:text-primary-700"
+              >
+                Import basket ({basketCount})
+              </button>
+            ) : null}
             {isEdit && receipt?.publicAccessToken ? (
               <button
                 type="button"
@@ -334,7 +415,7 @@ export default function ReceiptForm() {
 
           {/* Receipt Book Layout */}
           <form onSubmit={handleSubmit}>
-            <div className="bg-amber-50 border-2 border-amber-200 rounded-lg shadow-lg overflow-hidden" style={receiptFont}>
+            <div className="bg-amber-50 border-2 border-amber-200 rounded-sm shadow-lg overflow-hidden" style={receiptFont}>
               {/* Invoice header: number, date, status */}
               <div className="bg-amber-200/60 px-3 py-1.5 border-b-2 border-amber-300/50">
                 <div className="flex flex-wrap items-end gap-x-5 gap-y-1.5">
@@ -477,6 +558,36 @@ export default function ReceiptForm() {
                             className={fieldCls}
                             placeholder="Item description"
                           />
+                          {item.inventoryItemId ? (
+                            <div className="flex items-center gap-1 mt-0.5">
+                              <span className="text-[9px] font-semibold uppercase tracking-wide text-green-800 bg-green-50 px-1 rounded">
+                                Stock linked
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => handleItemChange(idx, "inventoryItemId", "")}
+                                className="text-[9px] text-amber-800/50 hover:text-red-600"
+                              >
+                                unlink
+                              </button>
+                            </div>
+                          ) : (
+                            <QuoteStockPicker
+                              onPick={(pick) => {
+                                const items = [...form.items];
+                                items[idx] = {
+                                  ...items[idx],
+                                  description: pick.description,
+                                  price: pick.price ?? items[idx].price,
+                                  category: pick.category || items[idx].category,
+                                  inventoryItemId: pick.inventoryItemId,
+                                  stockQty: 1,
+                                };
+                                const sub = itemsSubtotal(items);
+                                setForm({ ...form, items, priceEstimate: roundMoney(sub) });
+                              }}
+                            />
+                          )}
                         </div>
                         <div className="col-span-2">
                           <select
@@ -551,18 +662,25 @@ export default function ReceiptForm() {
                     <div className="col-span-7" />
                     <div className="col-span-5 space-y-1">
                       <div className="flex justify-between text-xs">
-                        <span className="text-amber-800/60 font-bold uppercase">Items total</span>
+                        <span className="text-amber-800/60 font-bold uppercase">Subtotal</span>
                         <span className="font-bold">${itemsTotal.toFixed(2)}</span>
                       </div>
+                      {isReceiptDoc ? (
+                        <div className="flex justify-between text-xs">
+                          <span className="text-amber-800/60 font-bold uppercase">HST 13%</span>
+                          <span className="font-bold">${hstAmount.toFixed(2)}</span>
+                        </div>
+                      ) : null}
                       <div className="flex justify-between text-sm items-center gap-2 pt-2 border-t-2 border-amber-800/30">
-                        <span className="text-amber-900 font-extrabold uppercase">Quote total</span>
+                        <span className="text-amber-900 font-extrabold uppercase">{isReceiptDoc ? "Total" : "Quote total"}</span>
                         <input
                           name="priceEstimate"
-                          value={form.priceEstimate}
+                          value={isReceiptDoc ? grandTotal.toFixed(2) : form.priceEstimate}
                           onChange={handleChange}
                           type="number"
                           step="0.01"
                           min="0"
+                          readOnly={isReceiptDoc}
                           className="w-28 text-right px-2 py-1 bg-white border-2 border-amber-800/30 rounded text-base focus:outline-none focus:border-amber-800/60 font-extrabold font-mono"
                           placeholder="$"
                         />
@@ -579,7 +697,7 @@ export default function ReceiptForm() {
                   </div>
                   <PosChargePanel
                     receipt={receipt}
-                    quoteTotal={itemsTotal}
+                    quoteTotal={grandTotal}
                     onPaid={(data) => setReceipt(data)}
                   />
                 </div>
@@ -587,9 +705,9 @@ export default function ReceiptForm() {
 
               {/* Save bar */}
               <div className="bg-amber-200/40 px-4 py-2 border-t-2 border-amber-300/50 flex flex-wrap items-center gap-3">
-                <button type="submit" disabled={saving} className="flex items-center gap-2 px-5 py-2 bg-primary-500 text-white font-medium text-sm rounded-lg hover:bg-primary-600 transition-colors disabled:opacity-50">
+                <button type="submit" disabled={saving} className="flex items-center gap-2 px-5 py-2 bg-primary-500 text-white font-medium text-sm rounded-sm hover:bg-primary-600 transition-colors disabled:opacity-50">
                   <Save size={16} />
-                  {saving ? "Saving..." : isEdit ? "Update quote" : "Create quote"}
+                  {saving ? "Saving..." : isEdit ? `Update ${docNoun.toLowerCase()}` : `Create ${docNoun.toLowerCase()}`}
                 </button>
                 {isEdit && customerCanNotify ? (
                   <label className="flex items-center gap-2 text-xs text-amber-900/80 cursor-pointer select-none">
@@ -602,8 +720,6 @@ export default function ReceiptForm() {
                     <MessageSquare size={13} className="text-amber-800/70" />
                     Text{form.customerEmail ? " / email" : ""} customer a quote update on save
                   </label>
-                ) : isEdit ? (
-                  <span className="text-[11px] text-amber-800/60 italic">Add a customer phone or email above to enable customer notifications.</span>
                 ) : null}
               </div>
             </div>
@@ -613,8 +729,8 @@ export default function ReceiptForm() {
           {isEdit && receipt && (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
               {/* Receipt-level Updates */}
-              <div className="bg-white rounded-xl border border-gray-100 p-4">
-                <h3 className="font-semibold text-dark-900 mb-4">General Updates (visible to customer)</h3>
+              <div className="bg-white border border-gray-200 rounded-sm p-3">
+                <h3 className="text-xs font-semibold text-dark-900 mb-2">Updates</h3>
                 {receipt.updates?.length > 0 ? (
                   <div className="space-y-2 mb-4 max-h-48 overflow-y-auto">
                     {receipt.updates.map((u, i) => (
@@ -625,16 +741,16 @@ export default function ReceiptForm() {
                     ))}
                   </div>
                 ) : (
-                  <p className="text-sm text-gray-400 mb-4">No general updates yet.</p>
+                  <p className="text-xs text-gray-400 mb-2">None</p>
                 )}
                 <form onSubmit={handleAddUpdate} className="space-y-2">
-                  <input type="text" placeholder="Add a general update..." value={updateMsg} onChange={(e) => setUpdateMsg(e.target.value)} className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500" />
+                  <input type="text" placeholder="Update" value={updateMsg} onChange={(e) => setUpdateMsg(e.target.value)} className="w-full px-2.5 py-1.5 bg-white border border-gray-200 rounded-sm text-sm focus:outline-none focus:ring-1 focus:ring-primary-500" />
                   <div className="flex gap-2">
-                    <select value={updateStatus} onChange={(e) => setUpdateStatus(e.target.value)} className="flex-1 px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500">
-                      <option value="">Don't change status</option>
+                    <select value={updateStatus} onChange={(e) => setUpdateStatus(e.target.value)} className="flex-1 px-2.5 py-1.5 bg-white border border-gray-200 rounded-sm text-sm focus:outline-none focus:ring-1 focus:ring-primary-500">
+                      <option value="">Status</option>
                       {statuses.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
                     </select>
-                    <button type="submit" className="px-4 py-2 bg-primary-500 text-white text-sm rounded-lg hover:bg-primary-600 transition-colors">
+                    <button type="submit" className="px-2.5 py-1.5 bg-primary-500 text-white text-sm rounded-sm hover:bg-primary-600">
                       <Plus size={16} />
                     </button>
                   </div>
@@ -650,20 +766,18 @@ export default function ReceiptForm() {
                       Text{receipt.customerEmail ? " / email" : ""} this update to{" "}
                       <span className="font-mono">{receipt.customerPhone || receipt.customerEmail}</span>
                     </label>
-                  ) : (
-                    <p className="text-[11px] text-gray-400 italic">Add a customer phone or email on this quote to enable customer notifications.</p>
-                  )}
+                  ) : null}
                 </form>
               </div>
 
               {/* Messages */}
-              <div className="bg-white rounded-xl border border-gray-100 p-4">
-                <h3 className="font-semibold text-dark-900 mb-4">Messages</h3>
+              <div className="bg-white border border-gray-200 rounded-sm p-3">
+                <h3 className="text-xs font-semibold text-dark-900 mb-2">Messages</h3>
                 {receipt.messages?.length > 0 ? (
                   <div className="space-y-2 mb-4 max-h-48 overflow-y-auto">
                     {receipt.messages.map((m, i) => (
                       <div key={i} className={`flex ${m.sender === "customer" ? "justify-start" : "justify-end"}`}>
-                        <div className={`max-w-[80%] px-3 py-2 rounded-lg text-sm ${m.sender === "customer" ? "bg-gray-100 text-dark-900" : "bg-primary-500 text-white"}`}>
+                        <div className={`max-w-[80%] px-3 py-2 rounded-sm text-sm ${m.sender === "customer" ? "bg-gray-100 text-dark-900" : "bg-primary-500 text-white"}`}>
                           <p>{m.message}</p>
                           <p className={`text-[10px] mt-1 ${m.sender === "customer" ? "text-gray-400" : "text-primary-200"}`}>
                             {m.sender} &mdash; {new Date(m.date).toLocaleString()}
@@ -673,11 +787,11 @@ export default function ReceiptForm() {
                     ))}
                   </div>
                 ) : (
-                  <p className="text-sm text-gray-400 mb-4">No messages yet.</p>
+                  <p className="text-xs text-gray-400 mb-2">None</p>
                 )}
                 <form onSubmit={handleStaffMessage} className="flex gap-2">
-                  <input type="text" placeholder="Send a message to customer..." value={staffMsg} onChange={(e) => setStaffMsg(e.target.value)} className="flex-1 px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500" />
-                  <button type="submit" className="px-4 py-2 bg-primary-500 text-white rounded-lg hover:bg-primary-600 transition-colors">
+                  <input type="text" placeholder="Message" value={staffMsg} onChange={(e) => setStaffMsg(e.target.value)} className="flex-1 px-2.5 py-1.5 bg-white border border-gray-200 rounded-sm text-sm focus:outline-none focus:ring-1 focus:ring-primary-500" />
+                  <button type="submit" className="px-2.5 py-1.5 bg-primary-500 text-white rounded-sm hover:bg-primary-600">
                     <Send size={16} />
                   </button>
                 </form>

@@ -11,13 +11,21 @@ const GroceryItemSchema = new mongoose.Schema(
       default: "pending",
     },
 
-    customerRequest: {
-      name: { type: String, default: "" },
-      email: { type: String, default: "" },
-      phone: { type: String, default: "" },
+    priority: {
+      type: String,
+      enum: ["high", "normal", "low"],
+      default: "normal",
+      index: true,
     },
 
-    /** When set, matching inventory triggers an email when the item becomes in-stock */
+    customerRequest: {
+      name: { type: String, trim: true, default: "" },
+      email: { type: String, trim: true, default: "" },
+      phone: { type: String, trim: true, default: "" },
+      notify: { type: String, enum: ["none", "email", "text", "both"], default: "none" },
+    },
+
+    // - Match keys: barcode/SKU used to notify the customer when stock returns.
     matchBarcode: { type: String, default: "", trim: true, index: true },
     matchItemNumber: { type: String, default: "", trim: true },
 
