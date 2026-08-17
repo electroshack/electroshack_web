@@ -2,13 +2,11 @@ const os = require("os");
 const express = require("express");
 const mongoose = require("mongoose");
 const { auth, superAdmin } = require("../middleware/auth");
+const OutboundSms = require("../models/OutboundSms");
+const { retryFailedSms } = require("../lib/sms");
 const router = express.Router();
 
-/**
- * Local MongoDB is limited by disk, not Atlas. Default budget is 20 GiB so the
- * dashboard widget warns before the store PC disk fills with photos/receipts.
- * Override with MONGODB_CAP_BYTES.
- */
+// ### Local Mongo size budget (20 GiB default). Dashboard warns before the store PC disk fills.
 const DEFAULT_CAP_BYTES = 20 * 1024 * 1024 * 1024;
 
 function lanAddresses() {
@@ -58,11 +56,7 @@ router.get("/storage-stats", auth, async (req, res) => {
   }
 });
 
-/**
- * Higher-resolution per-collection breakdown — useful when usage spikes and we
- * need to know whether to prune old quotes vs. compress inventory photos.
- * Superadmin-only since it surfaces internal collection names.
- */
+// ## Per-collection bytes. Superadmin-only; names are internal.
 router.get("/storage-stats/by-collection", auth, superAdmin, async (req, res) => {
   try {
     const collections = await mongoose.connection.db.listCollections().toArray();
@@ -100,6 +94,26 @@ router.get("/reachability", auth, (req, res) => {
     localUrl: `http://localhost:${port}`,
     lanUrls: lan.map((ip) => `http://${ip}:${port}`),
   });
+});
+
+router.get("/outbound-sms", auth, async (req, res) => {
+  try {
+    const items = await OutboundSms.find().sort({ createdAt: -1 }).limit(100);
+    res.json(items);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.post("/outbound-sms/:id/retry", auth, async (req, res) => {
+  try {
+    const row = await OutboundSms.findById(req.params.id);
+    if (!row) return res.status(404).json({ error: "SMS not found." });
+    const saved = await retryFailedSms(row, req.user?.username);
+    res.json(saved);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
 });
 
 module.exports = router;

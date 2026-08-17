@@ -16,6 +16,50 @@ function deviceName(dev, kind) {
   return vendor ? `${kind}: ${product} (${vendor})` : `${kind}: ${product}`;
 }
 
+function parseTerminalReply(text) {
+  const raw = String(text || "").trim();
+  const upper = raw.toUpperCase();
+  const refMatch = raw.match(/\b(?:REF|AUTH|APPR)?[:\s#]*([A-Z0-9-]{4,})\b/i);
+  if (/\bAPPROVED\b|\bAPPROVAL\b|\bAPPR\b/.test(upper)) {
+    return { outcome: "approved", ref: refMatch ? refMatch[1] : raw };
+  }
+  if (/\bDECLINED\b|\bDENIED\b|\bCANCEL(?:LED)?\b|\bABORT\b/.test(upper)) {
+    return { outcome: "declined", ref: raw };
+  }
+  return { outcome: null, ref: raw };
+}
+
+async function readSerialUntil(port, timeoutMs = 90000) {
+  const reader = port.readable.getReader();
+  const decoder = new TextDecoder();
+  let buf = "";
+  const deadline = Date.now() + timeoutMs;
+  try {
+    while (Date.now() < deadline) {
+      const remaining = Math.max(250, deadline - Date.now());
+      let chunk;
+      try {
+        chunk = await Promise.race([
+          reader.read(),
+          new Promise((_, reject) => {
+            setTimeout(() => reject(new Error("timeout-slice")), remaining);
+          }),
+        ]);
+      } catch (e) {
+        if (e?.message === "timeout-slice") continue;
+        throw e;
+      }
+      if (chunk.done) break;
+      buf += decoder.decode(chunk.value, { stream: true });
+      const parsed = parseTerminalReply(buf);
+      if (parsed.outcome) return { ...parsed, raw: buf };
+    }
+  } finally {
+    try { reader.releaseLock(); } catch { /* already released */ }
+  }
+  return { outcome: null, raw: buf, ref: buf };
+}
+
 export default function PosChargePanel({ receipt, quoteTotal, onPaid }) {
   const [devices, setDevices] = useState([]);
   const [selected, setSelected] = useState("");
@@ -25,8 +69,10 @@ export default function PosChargePanel({ receipt, quoteTotal, onPaid }) {
   );
   const [refCode, setRefCode] = useState(receipt?.payment?.terminalRef || "");
   const [listening, setListening] = useState(false);
+  const [waiting, setWaiting] = useState(false);
   const [saving, setSaving] = useState(false);
   const listenRef = useRef("");
+  const cancelWait = useRef(false);
 
   useEffect(() => {
     setAmount(receipt?.payment?.amountPaid || quoteTotal || 0);
@@ -85,22 +131,50 @@ export default function PosChargePanel({ receipt, quoteTotal, onPaid }) {
     }
   };
 
+  const handleOutcome = async (parsed) => {
+    if (parsed.outcome === "declined") {
+      toast.error("Terminal declined. Stock was not changed.");
+      setWaiting(false);
+      setListening(false);
+      return;
+    }
+    if (parsed.outcome === "approved") {
+      if (parsed.ref) setRefCode(parsed.ref);
+      await savePayment(false, { terminalRef: parsed.ref || refCode, methodOverride: "terminal" });
+      setWaiting(false);
+      setListening(false);
+    }
+  };
+
   const sendAmountToSerial = async () => {
     const dev = devices.find((d) => d.id === selected);
     if (!dev || dev.kind !== "serial") {
-      toast.error("Pair a serial terminal first, or charge on the handheld and mark paid.");
+      toast.error("Pair a serial terminal first, or charge on the handheld and mark paid after it approves.");
       return;
     }
+    cancelWait.current = false;
+    setWaiting(true);
     try {
-      await dev.raw.open({ baudRate: 9600 });
+      if (!dev.raw.readable) {
+        await dev.raw.open({ baudRate: 9600 });
+      }
       const writer = dev.raw.writable.getWriter();
       const line = `${Number(amount).toFixed(2)}\r\n`;
       await writer.write(new TextEncoder().encode(line));
       writer.releaseLock();
-      await dev.raw.close();
-      toast.success(`Sent $${Number(amount).toFixed(2)} to the serial port. Complete tap/insert on the terminal.`);
+      toast.success(`Sent $${Number(amount).toFixed(2)}. Complete tap/insert on the handheld.`);
+      const result = await readSerialUntil(dev.raw, 90000);
+      try { await dev.raw.close(); } catch { /* ignore */ }
+      if (cancelWait.current) return;
+      if (!result.outcome) {
+        toast.error("No approved/declined reply. Charge on the handheld, then mark paid only if it approved.");
+        return;
+      }
+      await handleOutcome(result);
     } catch (e) {
-      toast.error(e?.message || "Could not write to the terminal. Charge on the handheld, then mark paid.");
+      toast.error(e?.message || "Could not talk to the terminal. Chip/tap stays on the handheld.");
+    } finally {
+      setWaiting(false);
     }
   };
 
@@ -111,6 +185,12 @@ export default function PosChargePanel({ receipt, quoteTotal, onPaid }) {
       if (e.key === "Enter") {
         e.preventDefault();
         const code = listenRef.current.trim();
+        listenRef.current = "";
+        const parsed = parseTerminalReply(code);
+        if (parsed.outcome) {
+          handleOutcome(parsed);
+          return;
+        }
         if (code) setRefCode(code);
         setListening(false);
         toast.success("Captured terminal response.");
@@ -120,54 +200,48 @@ export default function PosChargePanel({ receipt, quoteTotal, onPaid }) {
     };
     window.addEventListener("keydown", onKey, true);
     return () => window.removeEventListener("keydown", onKey, true);
+    // Capture wedge input for this listen session only.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [listening]);
 
-  const savePayment = async (clear = false) => {
+  const savePayment = async (clear = false, extras = {}) => {
     if (!receipt?._id) return;
     setSaving(true);
     try {
       const payload = clear
         ? { method: "unpaid", amountPaid: 0, terminalRef: "", deviceLabel: "", note: "" }
         : {
-            method,
+            method: extras.methodOverride || method,
             amountPaid: Number(amount) || 0,
-            terminalRef: refCode,
+            terminalRef: extras.terminalRef != null ? extras.terminalRef : refCode,
             deviceLabel: devices.find((d) => d.id === selected)?.label || "",
-            note: method === "terminal" ? "Charged on handheld POS" : "",
+            note: (extras.methodOverride || method) === "terminal" ? "Approved on handheld POS" : "",
           };
       const { data } = await API.post(`/receipts/${receipt._id}/payment`, payload);
       onPaid?.(data);
-      toast.success(clear ? "Marked unpaid." : `Recorded ${METHODS.find((m) => m.value === payload.method)?.label || payload.method}.`);
+      toast.success(clear ? "Marked unpaid. Stock restored." : `Recorded ${METHODS.find((m) => m.value === payload.method)?.label || payload.method}.`);
     } catch (e) {
       toast.error(e.response?.data?.error || "Could not save payment.");
     }
     setSaving(false);
   };
 
-  if (!receipt?._id) {
-    return (
-      <div className="rounded-lg border border-amber-200 bg-white/70 px-3 py-2 text-[11px] text-amber-900/70">
-        Save the quote first, then charge tap/insert on the handheld and mark it paid here.
-      </div>
-    );
-  }
+  if (!receipt?._id) return null;
 
   return (
-    <div className="rounded-lg border border-amber-300/60 bg-white/80 px-3 py-2.5 space-y-2">
+    <div className="rounded-sm border border-amber-300/60 bg-white/80 px-3 py-2.5 space-y-2">
       <div className="flex items-center gap-2 text-amber-950">
         <CreditCard size={14} />
         <span className="text-[10px] font-bold uppercase tracking-wider">POS / payment</span>
         {paid ? (
           <span className="ml-auto text-[10px] font-bold uppercase tracking-wide text-green-700">
             {receipt.payment.method} ${Number(receipt.payment.amountPaid || 0).toFixed(2)}
+            {receipt.payment.stockApplied ? " · stock pulled" : ""}
           </span>
         ) : (
           <span className="ml-auto text-[10px] uppercase tracking-wide text-amber-800/50">unpaid</span>
         )}
       </div>
-      <p className="text-[10px] leading-snug text-amber-900/65">
-        Chip and tap stay on the handheld (PCI). Pair the USB/serial dongle if the browser can see it, send the amount, then mark paid. Cash and e-transfer still work as manual entry.
-      </p>
       <div className="flex flex-wrap gap-1.5">
         <button type="button" onClick={pairHid} className="inline-flex items-center gap-1 px-2 py-1 text-[10px] font-bold uppercase tracking-wide rounded bg-amber-100 text-amber-950 hover:bg-amber-200">
           <Keyboard size={11} /> HID
@@ -201,18 +275,34 @@ export default function PosChargePanel({ receipt, quoteTotal, onPaid }) {
         </label>
         <label className="col-span-2">
           <span className="block text-[9px] font-bold uppercase tracking-wider text-amber-800/55">Approval / ref</span>
-          <input value={refCode} onChange={(e) => setRefCode(e.target.value)} placeholder="Optional — or capture from keyboard-wedge" className="w-full px-1 py-0.5 text-[11px] border-b border-amber-800/25 bg-transparent" />
+          <input value={refCode} onChange={(e) => setRefCode(e.target.value)} placeholder="Filled from APPROVED reply — or type it" className="w-full px-1 py-0.5 text-[11px] border-b border-amber-800/25 bg-transparent" />
         </label>
       </div>
       <div className="flex flex-wrap gap-1.5">
-        <button type="button" onClick={sendAmountToSerial} className="px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide rounded bg-dark-900 text-white hover:bg-dark-800">
-          Send amount
+        <button type="button" disabled={waiting} onClick={sendAmountToSerial} className="px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide rounded bg-dark-900 text-white hover:bg-dark-800 disabled:opacity-50">
+          {waiting ? "Waiting for result…" : "Send amount"}
         </button>
-        <button type="button" onClick={() => setListening((v) => !v)} className={`px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide rounded ${listening ? "bg-green-600 text-white" : "bg-amber-100 text-amber-950"}`}>
-          {listening ? "Listening…" : "Capture ref"}
+        <button
+          type="button"
+          onClick={() => {
+            if (waiting) {
+              cancelWait.current = true;
+              setWaiting(false);
+            }
+            setListening((v) => !v);
+          }}
+          className={`px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide rounded ${listening ? "bg-green-600 text-white" : "bg-amber-100 text-amber-950"}`}
+        >
+          {listening ? "Listening…" : "Capture result"}
         </button>
-        <button type="button" disabled={saving} onClick={() => savePayment(false)} className="px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide rounded bg-primary-500 text-white hover:bg-primary-600 disabled:opacity-50">
-          Mark paid
+        <button
+          type="button"
+          disabled={saving || method === "terminal"}
+          onClick={() => savePayment(false)}
+          className="px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide rounded bg-primary-500 text-white hover:bg-primary-600 disabled:opacity-50"
+          title={method === "terminal" ? "Tap/insert waits for APPROVED from the handheld" : "Mark paid and pull linked stock"}
+        >
+          {method === "terminal" ? "Needs approval" : "Mark paid"}
         </button>
         {paid ? (
           <button type="button" disabled={saving} onClick={() => savePayment(true)} className="px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide rounded text-amber-800/70 hover:bg-amber-100">

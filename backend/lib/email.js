@@ -40,7 +40,7 @@ async function buildTransport() {
   const pass = process.env.SMTP_PASS || process.env.EMAIL_PASS;
   const secure = process.env.SMTP_SECURE === "true" || port === 465;
 
-  if (!host || !user) return null;
+  if (!host || !user || !pass) return null;
 
   const ipv4 = await resolveIPv4(host);
   console.log(`[email] SMTP transport: ${host} -> ${ipv4}:${port} (secure=${secure})`);
@@ -271,6 +271,14 @@ async function sendViaResend({ to, subject, text, html, replyTo }) {
   }
 }
 
+function emailConfigured() {
+  if ((process.env.RESEND_API_KEY || "").trim()) return true;
+  const host = process.env.SMTP_HOST || process.env.EMAIL_HOST;
+  const user = process.env.SMTP_USER || process.env.EMAIL_USER;
+  const pass = process.env.SMTP_PASS || process.env.EMAIL_PASS;
+  return Boolean(host && user && pass);
+}
+
 /**
  * @returns {{ sent: boolean, reason?: string, messageId?: string, via?: string }}
  */
@@ -366,10 +374,11 @@ function buildReceiptConfirmationHtml({ customerName, receiptNumber, trackUrl, p
   const greeting = firstName ? `Hi ${firstName},` : "Hi,";
   const itemRows = (Array.isArray(items) ? items : [])
     .filter((it) => it && (it.description || it.price))
-    .map(
-      (it, idx) =>
-        `<tr><td style="padding:14px 0;font-size:15px;color:#1e293b;line-height:1.5;${idx > 0 ? "border-top:1px solid #f1f5f9;" : ""}">${escapeHtml(it.description || "Item")}</td><td align="right" style="padding:14px 0;font-size:15px;color:#0f172a;font-weight:700;${idx > 0 ? "border-top:1px solid #f1f5f9;" : ""}">${fmtMoney(it.price)}</td></tr>`
-    )
+    .map((it, idx) => {
+      const net = Math.max(0, (Number(it.price) || 0) - (Number(it.discount) || 0));
+      const border = idx > 0 ? "border-top:1px solid #f1f5f9;" : "";
+      return `<tr><td style="padding:14px 0;font-size:15px;color:#1e293b;line-height:1.5;${border}">${escapeHtml(it.description || "Item")}</td><td align="right" style="padding:14px 0;font-size:15px;color:#0f172a;font-weight:700;${border}">${fmtMoney(net)}</td></tr>`;
+    })
     .join("");
   const innerHtml = `
     <p style="margin:0 0 16px;">${escapeHtml(greeting)}</p>
@@ -394,7 +403,6 @@ function buildReceiptConfirmationHtml({ customerName, receiptNumber, trackUrl, p
           </tr></table>`
         : ""
     }
-    <p style="margin:18px 0 0;font-size:13px;line-height:1.6;color:#94a3b8;">This is a quote, not a tax invoice. Final pricing may change after diagnosis — we'll email you with any updates.</p>
   `;
   return brandedShell({
     eyebrow: "Quote",
@@ -434,7 +442,6 @@ async function sendReceiptConfirmationEmail({
     "",
     `Track your repair: ${trackUrl}`,
     "",
-    "This is a quote, not a tax invoice.",
     `— ${shop}`,
   ].filter(Boolean).join("\n");
 
@@ -490,7 +497,6 @@ function buildReceiptUpdateHtml({ customerName, receiptNumber, status, message, 
           </tr></table>`
         : ""
     }
-    <p style="margin:18px 0 0;font-size:13px;line-height:1.6;color:#94a3b8;">This is a quote, not a tax invoice. Reply to this email if you have questions.</p>
   `;
   return brandedShell({
     eyebrow: "Repair update",
@@ -580,8 +586,13 @@ function buildAdminGroceryHtml({ action, item, actor, matchedInventory }) {
         <td align="right" style="padding:14px 0;border-top:1px solid #f1f5f9;"><span style="display:inline-block;padding:5px 12px;border-radius:999px;background:#e0f2fe;color:#075985;font-weight:700;font-size:12px;text-transform:uppercase;letter-spacing:0.1em;">${escapeHtml(item?.status || "pending")}</span></td>
       </tr>
       ${
-        item?.customerRequest?.email
-          ? `<tr><td style="padding:14px 0;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.14em;color:#94a3b8;border-top:1px solid #f1f5f9;">Notify</td><td align="right" style="padding:14px 0;font-size:14px;color:#0284c7;border-top:1px solid #f1f5f9;">${escapeHtml(item.customerRequest.email)}</td></tr>`
+        item?.customerRequest?.name
+          ? `<tr><td style="padding:14px 0;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.14em;color:#94a3b8;border-top:1px solid #f1f5f9;">For</td><td align="right" style="padding:14px 0;font-size:14px;color:#334155;border-top:1px solid #f1f5f9;">${escapeHtml(item.customerRequest.name)}</td></tr>`
+          : ""
+      }
+      ${
+        item?.customerRequest?.email || item?.customerRequest?.phone || item?.customerRequest?.notify
+          ? `<tr><td style="padding:14px 0;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.14em;color:#94a3b8;border-top:1px solid #f1f5f9;">Contact</td><td align="right" style="padding:14px 0;font-size:14px;color:#0284c7;border-top:1px solid #f1f5f9;">${escapeHtml([item.customerRequest.notify || "none", item.customerRequest.email, item.customerRequest.phone].filter(Boolean).join(" · "))}</td></tr>`
           : ""
       }
     </table>
@@ -605,10 +616,7 @@ function buildAdminGroceryHtml({ action, item, actor, matchedInventory }) {
   });
 }
 
-/**
- * Internal admin notification when grocery list is updated.
- * action ∈ "added" | "updated" | "removed" | "matched"
- */
+// # Internal grocery-list activity email. action is added, updated, removed, or matched.
 async function sendAdminGroceryNotification({ action, item, actor, matchedInventory }) {
   const target = adminEmail();
   if (!target) return { sent: false, reason: "no-admin-email" };
@@ -630,6 +638,7 @@ async function sendAdminGroceryNotification({ action, item, actor, matchedInvent
 
 module.exports = {
   sendMail,
+  emailConfigured,
   sendStockNotificationEmail,
   sendReceiptConfirmationEmail,
   sendReceiptUpdateEmail,

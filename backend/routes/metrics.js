@@ -62,7 +62,6 @@ async function buildSummary(range) {
   const sales = await Inventory.aggregate([
     {
       $match: {
-        status: "sold",
         dateSold: { $gte: from, $lte: to },
       },
     },
@@ -88,7 +87,7 @@ async function buildSummary(range) {
       { $sort: { _id: 1 } },
     ]),
     Inventory.aggregate([
-      { $match: { status: "sold", dateSold: { $gte: from, $lte: to } } },
+      { $match: { dateSold: { $gte: from, $lte: to } } },
       {
         $group: {
           _id: { $dateToString: { format: "%Y-%m-%d", date: "$dateSold" } },
@@ -144,7 +143,6 @@ router.get("/export.xlsx", auth, async (req, res) => {
       .lean();
 
     const soldItems = await Inventory.find({
-      status: "sold",
       dateSold: { $gte: from, $lte: to },
     })
       .sort({ dateSold: -1 })

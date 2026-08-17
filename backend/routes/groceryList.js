@@ -33,7 +33,13 @@ router.get("/", auth, async (req, res) => {
     const { status } = req.query;
     const filter = {};
     if (status) filter.status = status;
-    const items = await GroceryItem.find(filter).sort({ createdAt: -1 });
+    const items = await GroceryItem.find(filter).lean();
+    const order = { high: 0, normal: 1, low: 2 };
+    items.sort(
+      (a, b) =>
+        (order[a.priority] ?? 1) - (order[b.priority] ?? 1) ||
+        new Date(b.createdAt) - new Date(a.createdAt)
+    );
     res.json(items);
   } catch (err) {
     res.status(500).json({ error: err.message });

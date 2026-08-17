@@ -302,6 +302,137 @@ async function main() {
     if (r.sellingPrice !== 599.99) throw new Error("PUT did not persist price");
   });
 
+  await step("Name suggestions rank prefix matches", async () => {
+    const r = await api("GET", "/api/inventory/name-suggestions?q=iphone");
+    if (!Array.isArray(r.items) || r.items.length === 0) throw new Error("no suggestions");
+    if (!r.items.some((i) => /iphone/i.test(i.name))) throw new Error("missing iPhone suggestion");
+  });
+
+  await step("Qty 0 becomes out-of-stock and can undo", async () => {
+    const soldDown = await api("PUT", `/api/inventory/${inventoryId}`, {
+      body: { name: "Refurbished iPhone 13 (updated)", category: "cell-phone", quantity: 0 },
+    });
+    if (soldDown.status !== "out-of-stock") {
+      throw new Error(`expected out-of-stock, got ${soldDown.status}`);
+    }
+    const recent = await api("GET", "/api/inventory/recently-out-of-stock");
+    if (soldDown.status === "out-of-stock" && !recent.items.some((row) => row.item?._id === inventoryId)) {
+      throw new Error("recently-out-of-stock missing the item");
+    }
+    const undone = await api("POST", `/api/inventory/${inventoryId}/undo-stock`);
+    if ((undone.item?.quantity ?? 0) < 1) throw new Error("undo did not restore qty");
+  });
+
+  await step("Paid quote with linked stock decrements qty", async () => {
+    const before = await api("GET", `/api/inventory/${inventoryId}`);
+    const quote = await api("POST", "/api/receipts", {
+      expect: 201,
+      body: {
+        customerName: "Stock Sale",
+        customerPhone: "9055550100",
+        items: [
+          {
+            description: before.name,
+            category: "cell-phone-purchase",
+            price: 50,
+            inventoryItemId: inventoryId,
+            stockQty: 1,
+          },
+        ],
+      },
+    });
+    await api("POST", `/api/receipts/${quote._id}/payment`, {
+      body: { method: "cash", amountPaid: 50 },
+    });
+    const after = await api("GET", `/api/inventory/${inventoryId}`);
+    if (after.quantity !== (before.quantity || 0) - 1) {
+      throw new Error(`expected qty ${before.quantity - 1}, got ${after.quantity}`);
+    }
+    await api("POST", `/api/receipts/${quote._id}/payment`, {
+      body: { method: "unpaid", amountPaid: 0 },
+    });
+    const restored = await api("GET", `/api/inventory/${inventoryId}`);
+    if (restored.quantity !== before.quantity) throw new Error("unpaid did not restore stock");
+    await api("DELETE", `/api/receipts/${quote._id}`);
+  });
+
+  await step("Receipts add HST; quotes do not", async () => {
+    const sale = await api("POST", "/api/receipts", {
+      expect: 201,
+      body: {
+        documentType: "receipt",
+        customerName: "HST Sale",
+        customerPhone: "9055550101",
+        items: [
+          {
+            description: "Phone",
+            category: "cell-phone-purchase",
+            price: 100,
+            inventoryItemId: inventoryId,
+            stockQty: 1,
+          },
+        ],
+      },
+    });
+    if (sale.documentType !== "receipt") throw new Error("expected receipt");
+    if (Number(sale.subtotal) !== 100) throw new Error(`subtotal ${sale.subtotal}`);
+    if (Number(sale.hst) !== 13) throw new Error(`hst ${sale.hst}`);
+    if (Number(sale.total) !== 113) throw new Error(`total ${sale.total}`);
+    await api("DELETE", `/api/receipts/${sale._id}`);
+
+    const quote = await api("POST", "/api/receipts", {
+      expect: 201,
+      body: {
+        documentType: "quote",
+        customerName: "No Tax Quote",
+        customerPhone: "9055550102",
+        items: [{ description: "Screen", category: "repair", price: 100 }],
+      },
+    });
+    if (Number(quote.hst) !== 0) throw new Error(`quote hst ${quote.hst}`);
+    if (Number(quote.total) !== 100) throw new Error(`quote total ${quote.total}`);
+    await api("DELETE", `/api/receipts/${quote._id}`);
+  });
+
+  await step("Reject receipt with repair lines", async () => {
+    await api("POST", "/api/receipts", {
+      expect: 400,
+      body: {
+        documentType: "receipt",
+        customerName: "Repair Receipt",
+        customerPhone: "9055550103",
+        items: [{ description: "Screen", category: "repair", price: 80 }],
+      },
+    });
+  });
+
+  await step("Reserve and unreserve inventory", async () => {
+    const before = await api("GET", `/api/inventory/${inventoryId}`);
+    const reserved = await api("POST", `/api/inventory/${inventoryId}/reserve`, { body: { qty: 1 } });
+    if ((reserved.reservedQty || 0) < 1) throw new Error("reserve did not increment");
+    const undone = await api("POST", `/api/inventory/${inventoryId}/unreserve`, { body: { qty: 1 } });
+    if ((undone.reservedQty || 0) !== (before.reservedQty || 0)) throw new Error("unreserve did not restore");
+  });
+
+  await step("Quote SMS fails without SIM", async () => {
+    const q = await api("POST", "/api/receipts", {
+      expect: 201,
+      body: {
+        customerName: "SMS Queue",
+        customerPhone: "9055550199",
+        items: [{ description: "Screen", category: "repair", price: 10 }],
+      },
+    });
+    if (q.smsNotify?.sent) throw new Error("expected SIM failure, got sent");
+    if (q.smsNotify?.reason === "invalid-phone") throw new Error("phone rejected");
+    if (!q.smsNotify?.failed && q.smsNotify?.reason !== "Message failed to send due to SIM issue") {
+      throw new Error(`expected SIM failure, got ${JSON.stringify(q.smsNotify)}`);
+    }
+    const list = await api("GET", "/api/admin/outbound-sms");
+    if (!Array.isArray(list) || list.length === 0) throw new Error("outbound SMS list empty");
+    await api("DELETE", `/api/receipts/${q._id}`);
+  });
+
   await step("Sticker parser extracts IMEI", async () => {
     const r = await api("POST", "/api/inventory/parse-sticker", {
       body: { blob: "Apple iPhone 14 Pro Max\nIMEI: 356938 03 564380 9\nSerial: F2LN1ABCDE12" },
@@ -313,10 +444,19 @@ async function main() {
   await step("Create grocery list item", async () => {
     const r = await api("POST", "/api/grocery-list", {
       expect: [200, 201],
-      body: { title: "USB-C charger", notes: "65W brick", matchBarcode: "999000111222" },
+      body: {
+        title: "USB-C charger",
+        notes: "65W brick",
+        matchBarcode: "999000111222",
+        priority: "high",
+        customerRequest: { name: "Alex", email: "alex@example.com", phone: "+15555550100", notify: "email" },
+      },
     });
     groceryId = r._id;
     if (!groceryId) throw new Error("no _id returned");
+    if (r.priority !== "high") throw new Error("priority not saved");
+    if (r.customerRequest?.notify !== "email") throw new Error("notify not saved");
+    if (r.customerRequest?.name !== "Alex") throw new Error("name not saved");
   });
 
   await step("List grocery items", async () => {

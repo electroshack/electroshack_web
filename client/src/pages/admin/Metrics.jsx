@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import toast from "react-hot-toast";
-import { Download, BarChart3 } from "lucide-react";
+import { Download } from "lucide-react";
 import AdminLayout from "../../components/AdminLayout";
 import SalesChart from "../../components/SalesChart";
 import API from "../../api";
@@ -30,7 +30,6 @@ export default function Metrics() {
 
   useEffect(() => {
     loadMetrics();
-    // initial range only
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -66,72 +65,62 @@ export default function Metrics() {
   const rangeTo = summary?.range?.to || to;
 
   return (
-    <AdminLayout title="Metrics & export">
-      <div className="max-w-5xl space-y-5">
-        <p className="text-sm text-gray-600">
-          Completed quotes and inventory sold in the selected dates. Use this to see what the shop actually took in.
-        </p>
-
-        <form onSubmit={applyRange} className="flex flex-wrap items-end gap-3 bg-white rounded-xl border border-gray-100 p-4">
-          <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1">From</label>
-            <input type="date" value={from} onChange={(e) => setFrom(e.target.value)} className="px-3 py-2 border border-gray-200 rounded-lg text-sm" />
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1">To</label>
-            <input type="date" value={to} onChange={(e) => setTo(e.target.value)} className="px-3 py-2 border border-gray-200 rounded-lg text-sm" />
-          </div>
-          <button type="submit" className="px-4 py-2 bg-primary-500 text-white text-sm font-medium rounded-lg hover:bg-primary-600">
-            Apply range
+    <AdminLayout title="Metrics">
+      <div className="space-y-3">
+        <form onSubmit={applyRange} className="flex flex-wrap items-end gap-2">
+          <label>
+            <span className="block text-[10px] font-semibold uppercase tracking-wider text-gray-400">From</span>
+            <input type="date" value={from} onChange={(e) => setFrom(e.target.value)} className="h-8 px-2 border border-gray-200 rounded-sm text-sm" />
+          </label>
+          <label>
+            <span className="block text-[10px] font-semibold uppercase tracking-wider text-gray-400">To</span>
+            <input type="date" value={to} onChange={(e) => setTo(e.target.value)} className="h-8 px-2 border border-gray-200 rounded-sm text-sm" />
+          </label>
+          <button type="submit" className="h-8 px-2.5 bg-primary-500 text-white text-sm font-medium rounded-sm hover:bg-primary-600">
+            Apply
           </button>
           <button
             type="button"
             onClick={exportXlsx}
-            className="inline-flex items-center gap-2 px-4 py-2 bg-dark-900 text-white text-sm font-medium rounded-lg hover:bg-dark-800"
+            className="inline-flex items-center gap-1 h-8 px-2.5 bg-white border border-gray-200 text-sm font-medium rounded-sm hover:bg-gray-50"
           >
-            <Download size={16} />
-            Export XLSX
+            <Download size={12} />
+            XLSX
           </button>
         </form>
 
         {loading ? (
-          <div className="flex justify-center py-20">
-            <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary-500" />
+          <div className="flex justify-center py-16">
+            <div className="animate-spin rounded-full h-7 w-7 border-b-2 border-primary-500" />
           </div>
         ) : (
           <>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="bg-white rounded-xl border border-gray-100 p-5">
-                <div className="flex items-center gap-2 text-primary-600 mb-2">
-                  <BarChart3 size={20} />
-                  <span className="font-semibold text-dark-900">Receipts</span>
-                </div>
-                <p className="text-2xl font-bold text-dark-900">{r?.totalInRange ?? 0}</p>
-                <p className="text-sm text-gray-500">Tickets in range</p>
-                <p className="text-lg font-semibold text-dark-900 mt-3">${Number(r?.completedRevenue || 0).toFixed(2)}</p>
-                <p className="text-sm text-gray-500">Revenue (completed quotes)</p>
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
+              <div className="bg-white border border-gray-200 rounded-sm px-3 py-2">
+                <p className="text-base font-semibold text-dark-900 leading-tight">{r?.totalInRange ?? 0}</p>
+                <p className="text-[10px] uppercase tracking-wider text-gray-400">Tickets</p>
               </div>
-              <div className="bg-white rounded-xl border border-gray-100 p-5">
-                <div className="flex items-center gap-2 text-accent-600 mb-2">
-                  <BarChart3 size={20} />
-                  <span className="font-semibold text-dark-900">Inventory</span>
-                </div>
-                <p className="text-lg font-bold text-green-700">${Number(inv?.moneyInSold || 0).toFixed(2)}</p>
-                <p className="text-sm text-gray-500">Money in (sold lines × price)</p>
-                <p className="text-lg font-bold text-amber-800 mt-2">${Number(inv?.moneyOutPurchases || 0).toFixed(2)}</p>
-                <p className="text-sm text-gray-500">Money out (purchases × cost)</p>
+              <div className="bg-white border border-gray-200 rounded-sm px-3 py-2">
+                <p className="text-base font-semibold text-dark-900 leading-tight">${Number(r?.completedRevenue || 0).toFixed(2)}</p>
+                <p className="text-[10px] uppercase tracking-wider text-gray-400">Completed</p>
+              </div>
+              <div className="bg-white border border-gray-200 rounded-sm px-3 py-2">
+                <p className="text-base font-semibold text-dark-900 leading-tight">${Number(inv?.moneyInSold || 0).toFixed(2)}</p>
+                <p className="text-[10px] uppercase tracking-wider text-gray-400">Sold</p>
+              </div>
+              <div className="bg-white border border-gray-200 rounded-sm px-3 py-2">
+                <p className="text-base font-semibold text-dark-900 leading-tight">${Number(inv?.moneyOutPurchases || 0).toFixed(2)}</p>
+                <p className="text-[10px] uppercase tracking-wider text-gray-400">Purchases</p>
               </div>
             </div>
 
-            <div className="bg-white rounded-xl border border-gray-100 p-5">
-              <h3 className="font-semibold text-dark-900 mb-1">Completed quote sales</h3>
-              <p className="text-xs text-gray-500 mb-2">Daily totals from completed tickets</p>
+            <div className="bg-white border border-gray-200 rounded-sm px-3 py-2">
+              <h3 className="text-xs font-semibold text-dark-900 mb-1">Quotes</h3>
               <SalesChart from={rangeFrom} to={rangeTo} series={summary?.daily?.quotes || []} color="#0787ec" />
             </div>
-            <div className="bg-white rounded-xl border border-gray-100 p-5">
-              <h3 className="font-semibold text-dark-900 mb-1">Inventory sold</h3>
-              <p className="text-xs text-gray-500 mb-2">Daily selling price × quantity</p>
-              <SalesChart from={rangeFrom} to={rangeTo} series={summary?.daily?.inventory || []} color="#ca8a04" emptyLabel="No inventory sales in this range yet." />
+            <div className="bg-white border border-gray-200 rounded-sm px-3 py-2">
+              <h3 className="text-xs font-semibold text-dark-900 mb-1">Inventory</h3>
+              <SalesChart from={rangeFrom} to={rangeTo} series={summary?.daily?.inventory || []} color="#ca8a04" emptyLabel="None" />
             </div>
           </>
         )}

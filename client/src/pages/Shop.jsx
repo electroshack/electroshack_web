@@ -72,36 +72,32 @@ export default function Shop() {
 
   return (
     <main className="min-h-screen bg-gray-50">
-      <section className="bg-dark-900 py-16">
+      <section className="bg-dark-900 py-8">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <h1 className="text-4xl font-bold text-white mb-4">Shop</h1>
-          <p className="text-gray-400 max-w-xl mx-auto mb-8">
-            Browse our available inventory. All items are inspected, tested, and ready to go.
-          </p>
+          <h1 className="text-3xl font-bold text-white mb-4">Shop</h1>
           <form onSubmit={handleSearch} className="max-w-md mx-auto flex">
             <input
               type="text"
-              placeholder="Search items..."
+              placeholder="Search"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="flex-1 px-4 py-2.5 rounded-l-lg border-0 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+              className="flex-1 px-3 py-2 rounded-l-sm border-0 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
             />
-            <button type="submit" className="px-4 py-2.5 bg-accent-400 text-dark-900 rounded-r-lg hover:bg-accent-300 transition-colors">
-              <Search size={18} />
+            <button type="submit" className="px-3 py-2 bg-accent-400 text-dark-900 rounded-r-sm hover:bg-accent-300">
+              <Search size={16} />
             </button>
           </form>
         </div>
       </section>
 
-      <section className="py-10">
+      <section className="py-6">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          {/* Category Filter */}
-          <div className="flex flex-wrap gap-2 mb-8">
+          <div className="flex flex-wrap gap-1.5 mb-4">
             {categories.map((c) => (
               <button
                 key={c.value}
                 onClick={() => setCategory(c.value)}
-                className={`px-3 py-1.5 text-sm rounded-full transition-colors ${
+                className={`px-3 py-1.5 text-sm rounded-sm transition-colors ${
                   category === c.value
                     ? "bg-primary-500 text-white"
                     : "bg-white text-gray-600 border border-gray-200 hover:border-primary-300"
@@ -117,16 +113,15 @@ export default function Shop() {
               <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary-500" />
             </div>
           ) : items.length === 0 ? (
-            <div className="text-center py-20">
-              <Package size={48} className="mx-auto text-gray-300 mb-4" />
-              <h3 className="text-lg font-medium text-gray-500">No items available</h3>
-              <p className="text-sm text-gray-400 mt-1">Check back soon for new inventory!</p>
+            <div className="text-center py-12">
+              <Package size={36} className="mx-auto text-gray-300 mb-2" />
+              <h3 className="text-sm font-medium text-gray-500">No items</h3>
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
               {items.map((item) => (
-                <div key={item._id} className="bg-white rounded-xl border border-gray-100 overflow-hidden hover:border-primary-200 transition-all hover:-translate-y-1 duration-300">
-                  <div className="relative h-48 bg-white flex items-center justify-center overflow-hidden">
+                <div key={item._id} className={`bg-white rounded-sm border border-gray-200 overflow-hidden hover:border-primary-200 ${item.status === "out-of-stock" || Number(item.quantity) <= 0 ? "grayscale-[0.35]" : ""}`}>
+                  <div className="relative h-32 bg-white flex items-center justify-center overflow-hidden">
                     {item.images && item.images[0] && /^(https?:|data:image\/)/i.test(String(item.images[0])) ? (
                       <img
                         src={String(item.images[0])}
@@ -141,14 +136,19 @@ export default function Shop() {
                       <Package size={48} className="text-gray-200" />
                     )}
                     <span
-                      className={`absolute left-2 top-2 px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wide shadow-sm border border-white/60 ${
+                      className={`absolute left-2 top-2 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide ${
                         conditionColors[item.condition] || "bg-gray-100 text-gray-600 border-gray-200"
                       }`}
                     >
                       {conditionLabels[item.condition] || item.condition}
                     </span>
+                    {item.status === "out-of-stock" || Number(item.quantity) <= 0 ? (
+                      <span className="absolute right-2 top-2 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide bg-gray-900/80 text-white">
+                        Out of stock
+                      </span>
+                    ) : null}
                   </div>
-                  <div className="p-4">
+                  <div className={`p-3 ${item.status === "out-of-stock" || Number(item.quantity) <= 0 ? "opacity-60" : ""}`}>
                     <div className="flex items-start justify-between gap-2 mb-2">
                       <h3 className="font-semibold text-dark-900 text-sm leading-tight pr-2">{item.name}</h3>
                     </div>

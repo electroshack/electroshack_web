@@ -15,8 +15,6 @@ const BARCODE_FORMATS = [
   Html5QrcodeSupportedFormats.QR_CODE,
 ];
 
-const HINT = "Align the code inside the frame; hold steady and avoid glare.";
-
 const NATIVE_FORMATS = ["qr_code", "ean_13", "ean_8", "code_128", "code_39", "upc_e", "upc_a", "itf"];
 
 async function stopScannerSafely(instance) {
@@ -241,32 +239,31 @@ export default function BarcodeScannerModal({ open, onClose, onDetected }) {
 
   return (
     <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center sm:p-4 bg-black/55" role="dialog" aria-modal="true">
-      <div className="bg-white sm:rounded-2xl shadow-2xl w-full sm:max-w-lg max-h-[94vh] overflow-hidden flex flex-col border border-gray-200">
-        <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 shrink-0">
-          <h2 className="font-semibold text-dark-900 text-sm sm:text-base">Scan</h2>
-          <button type="button" onClick={onClose} className="p-2 text-gray-500 hover:text-dark-900 rounded-lg" aria-label="Close">
-            <X size={20} />
+      <div className="bg-white sm:rounded-sm shadow-2xl w-full sm:max-w-lg max-h-[94vh] overflow-hidden flex flex-col border border-gray-200">
+        <div className="flex items-center justify-between px-3 py-2 border-b border-gray-200 shrink-0">
+          <h2 className="font-semibold text-dark-900 text-sm">Scan</h2>
+          <button type="button" onClick={onClose} className="p-1.5 text-gray-500 hover:text-dark-900 rounded-sm" aria-label="Close">
+            <X size={18} />
           </button>
         </div>
-        <div className="p-4 flex flex-col gap-3 flex-1 min-h-0 overflow-y-auto">
-          <p className="text-xs text-gray-600">{HINT}</p>
-          <div className="relative w-full rounded-lg overflow-hidden bg-black border border-gray-800/30">
+        <div className="p-3 flex flex-col gap-2 flex-1 min-h-0 overflow-y-auto">
+          <div className="relative w-full rounded-sm overflow-hidden bg-black border border-gray-800/30">
             <div id={REGION_ID} className="w-full min-h-[40vh] sm:min-h-[280px] relative" />
             <div className="pointer-events-none absolute bottom-0 left-0 right-0 py-2 px-3 bg-gradient-to-t from-black/80 to-transparent">
-              <p className="text-center text-[11px] text-white/90">{scanning ? "Ready to scan" : ""}</p>
+              <p className="text-center text-[11px] text-white/90">{scanning ? "Ready" : ""}</p>
             </div>
           </div>
-          {err && <p className="text-xs text-amber-900 bg-amber-50 rounded-lg px-3 py-2 border border-amber-200">{err}</p>}
+          {err && <p className="text-xs text-red-700 bg-red-50 px-2 py-1.5 border border-red-200">{err}</p>}
           <div className="flex gap-2">
             <input
               type="text"
               value={manual}
               onChange={(e) => setManual(e.target.value)}
-              placeholder="Or type code…"
-              className="flex-1 px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm font-mono text-dark-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500"
+              placeholder="Code"
+              className="flex-1 px-2.5 py-1.5 bg-gray-50 border border-gray-200 rounded-sm text-sm font-mono text-dark-900 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-primary-500"
               onKeyDown={(e) => e.key === "Enter" && submitManual()}
             />
-            <button type="button" onClick={submitManual} className="px-4 py-2.5 bg-dark-900 text-white text-sm font-medium rounded-lg hover:bg-dark-800 shrink-0">
+            <button type="button" onClick={submitManual} className="px-2.5 py-1.5 bg-dark-900 text-white text-xs font-medium rounded-sm hover:bg-dark-800 shrink-0">
               Use
             </button>
           </div>

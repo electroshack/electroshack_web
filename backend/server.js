@@ -4,10 +4,7 @@ if (process.env.DNS_SERVERS) {
   const list = process.env.DNS_SERVERS.split(",").map((s) => s.trim()).filter(Boolean);
   if (list.length) dns.setServers(list);
 }
-/**
- * Render's free tier has no outbound IPv6. Without this, anything that
- * resolves AAAA before A (e.g. `smtp.office365.com`) fails with ENETUNREACH.
- */
+// # Prefer A records. Some hosts (Render free) have no outbound IPv6.
 if (typeof dns.setDefaultResultOrder === "function") {
   dns.setDefaultResultOrder("ipv4first");
 }
