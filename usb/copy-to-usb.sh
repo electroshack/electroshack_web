@@ -18,6 +18,11 @@ rsync -a --delete \
   --exclude "client/build" \
   --exclude "backups/*.zip" \
   --exclude "backups/dump-*" \
+  --exclude "/SETUP.bat" \
+  --exclude "/START.bat" \
+  --exclude "/BACKUP.bat" \
+  --exclude "/RESTORE.bat" \
+  --exclude "/ENABLE-INTERNET.bat" \
   "$ROOT/" "$DEST/"
 
 # Stick-root launchers call scripts in usb\ so store staff never have to open that folder.

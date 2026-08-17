@@ -6,7 +6,7 @@ A modern web-based storefront and point-of-sale (POS) system for Electroshack, r
 
 Day-to-day shop use runs on the Windows PC in the back of the store. The database stays on that PC. No Atlas, Cloudflare, Twilio, or extra accounts are required.
 
-1. On the Mac, copy this repo onto a USB stick (so `SETUP.bat` is at the stick root):
+1. On the Mac, copy this repo onto a USB stick. Launchers live in `usb/`; the copy script writes `SETUP.bat` (and START/BACKUP/RESTORE/ENABLE-INTERNET/SETUP-SMS) to the **stick** root only:
 
    ```bash
    ./usb/copy-to-usb.sh /Volumes/YOUR-USB-NAME
