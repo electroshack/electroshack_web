@@ -18,6 +18,7 @@ Day-to-day shop use runs on the Windows PC in the back of the store. The databas
 5. After SETUP, the site is this PC and the shop Wi-Fi only. To let customers open ticket links from home, double-click **ENABLE-INTERNET.bat**, add the GoDaddy A record it prints, and forward ports 80/443 to the PC. The database still stays on that machine.
 6. Plug the stick in later and double-click **BACKUP.bat**. Restores use **RESTORE.bat**. Dumps land in `backups\` on the USB.
 7. For customer texts, plug in a USB LTE/GSM modem (SIM in the dongle, not a card reader) and run **SETUP-SMS.bat**. Unsent texts show under Admin → Messages.
+8. On Linux, run `./usb/setup-linux.sh` instead of SETUP.bat. Pause with `./usb/pause-linux.sh` before moving the PC; start again with `./usb/start-linux.sh`.
 
 ## Live deployment
 

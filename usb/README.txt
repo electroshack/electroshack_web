@@ -103,6 +103,21 @@ To restore the latest backup onto the PC:
 
 You can also run usb/backup.sh / usb/restore.sh from Terminal or Git Bash.
 
+LINUX (this store-DB machine)
+-----------------------------
+If this PC is Linux instead of Windows, from the USB/project folder:
+
+  ./usb/setup-linux.sh
+
+That installs MongoDB into ~/Electroshack, copies usb/credentials.env into
+backend/.env, builds the storefront, seeds admin, and starts
+http://localhost:5000. No Git clone.
+
+  ./usb/start-linux.sh     start / reopen
+  ./usb/pause-linux.sh     stop Node + Mongo so you can move the PC
+  ./usb/stop-linux.sh      same as pause
+  ./usb/backup.sh          dump the database into backups/
+
 WHERE DATA LIVES
 ----------------
 App:      C:\Electroshack\app

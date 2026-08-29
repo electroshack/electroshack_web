@@ -3,6 +3,8 @@ set -euo pipefail
 
 USB_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_ROOT="$(cd "$USB_DIR/.." && pwd)"
+INSTALL_ROOT="${ELECTROSHACK_HOME:-$HOME/Electroshack}"
+export PATH="$INSTALL_ROOT/bin:$INSTALL_ROOT/mongodb/bin:$INSTALL_ROOT/dbtools/bin:$PATH"
 BACKUP_ROOT="$REPO_ROOT/backups"
 BACKUP_ZIP="${1:-}"
 

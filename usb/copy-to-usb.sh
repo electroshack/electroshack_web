@@ -30,6 +30,10 @@ rsync -a --delete \
   --exclude "/BACKUP.bat" \
   --exclude "/RESTORE.bat" \
   --exclude "/ENABLE-INTERNET.bat" \
+  --exclude "/SETUP.sh" \
+  --exclude "/START.sh" \
+  --exclude "/PAUSE.sh" \
+  --exclude "/STOP.sh" \
   --filter "P .Trashes/" \
   --filter "P .fseventsd/" \
   --filter "P .TemporaryItems/" \
@@ -58,6 +62,12 @@ cp "$ROOT/usb/START.bat" "$DEST/START.bat"
 cp "$ROOT/usb/PAUSE.bat" "$DEST/PAUSE.bat"
 cp "$ROOT/usb/PAUSE.ps1" "$DEST/PAUSE.ps1"
 cp "$ROOT/usb/STOP.bat" "$DEST/STOP.bat"
+cp "$ROOT/usb/setup-linux.sh" "$DEST/SETUP.sh"
+cp "$ROOT/usb/start-linux.sh" "$DEST/START.sh"
+cp "$ROOT/usb/pause-linux.sh" "$DEST/PAUSE.sh"
+cp "$ROOT/usb/stop-linux.sh" "$DEST/STOP.sh"
+chmod +x "$DEST/SETUP.sh" "$DEST/START.sh" "$DEST/PAUSE.sh" "$DEST/STOP.sh" \
+  "$DEST/usb/setup-linux.sh" "$DEST/usb/start-linux.sh" "$DEST/usb/pause-linux.sh" "$DEST/usb/stop-linux.sh"
 
 cat > "$DEST/BACKUP.bat" <<'EOF'
 @echo off
