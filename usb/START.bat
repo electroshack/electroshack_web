@@ -17,13 +17,13 @@ sc query MongoDB >nul 2>&1 && (
 
 powershell -NoProfile -Command "try { (Invoke-WebRequest -UseBasicParsing http://127.0.0.1:5000/api/health -TimeoutSec 2).StatusCode } catch { 0 }" | findstr "200" >nul
 if %ERRORLEVEL%==0 (
-  echo Electroshack is already running.
-  start http://localhost:5000
+  echo Electroshack database is already running.
+  start https://electroshack.ca
   endlocal
   exit /b 0
 )
 
 start "" /MIN "%APP%\start-backend.cmd"
 timeout /t 6 /nobreak >nul
-start http://localhost:5000
+start https://electroshack.ca
 endlocal

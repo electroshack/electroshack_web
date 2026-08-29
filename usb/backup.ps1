@@ -31,7 +31,21 @@ if (-not $mongodump) {
 }
 
 Write-Host "Dumping electroshack database to $DumpDir"
-& $mongodump --uri "mongodb://127.0.0.1:27017/electroshack" --out $DumpDir
+$uri = $env:MONGODB_URI
+if (-not $uri) {
+  foreach ($envFile in @(
+    (Join-Path $UsbDir "credentials.env"),
+    "C:\Electroshack\app\backend\.env",
+    (Join-Path (Split-Path $UsbDir) "backend\.env")
+  )) {
+    if (Test-Path $envFile) {
+      $line = Get-Content $envFile | Where-Object { $_ -match "^MONGODB_URI=" } | Select-Object -Last 1
+      if ($line) { $uri = $line.Substring("MONGODB_URI=".Length); break }
+    }
+  }
+}
+if (-not $uri) { $uri = "mongodb://127.0.0.1:27017/electroshack" }
+& $mongodump --uri $uri --out $DumpDir
 if ($LASTEXITCODE -ne 0) { throw "mongodump failed" }
 
 Compress-Archive -Path $DumpDir -DestinationPath $ZipPath -Force

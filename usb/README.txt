@@ -20,7 +20,14 @@ WHAT TO DO ON THE STORE PC
 3. Double-click SETUP.bat
 4. Click Yes if Windows asks to run as administrator.
 5. Wait. First run installs Node.js + MongoDB, copies the app, and starts it.
-6. Browser should open http://localhost:5000
+6. Browser should open https://electroshack.ca
+
+After that, the app lives on this PC at C:\Electroshack. Unplug the USB.
+It starts when someone signs into Windows. Desktop shortcuts:
+
+  Start Electroshack
+  Pause Electroshack
+  Export Database
 
 After that, the app lives on this PC at C:\Electroshack. Unplug the USB.
 It starts when someone signs into Windows. Desktop shortcut: Electroshack.
@@ -42,7 +49,7 @@ If the app is already installed and you just want to open it:
 
 LOCAL LOGIN (this USB is the key)
 ---------------------------------
-Open:     http://localhost:5000/login
+Open:     https://electroshack.ca/login
 Username: admin
 Password: $9600Electr@
 
@@ -131,6 +138,6 @@ with SETUP.bat then RESTORE.bat.
 
 NO EXTRA ACCOUNTS REQUIRED
 --------------------------
-Email: set SMTP_PASS in credentials.env (copied to backend\.env) to the
-Microsoft 365 mailbox / app password for admin@electroshack.ca.
+Email: Microsoft 365 mailbox admin@electroshack.ca (SMTP_PASS is already in
+credentials.env). On the live site, Render also sends via Resend HTTPS.
 SMS uses the USB GSM modem after SETUP-SMS.bat. No Twilio.

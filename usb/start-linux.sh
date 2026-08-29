@@ -92,8 +92,11 @@ tmux_cmd new-session -d -s "electroshack-backend" -c "$BACKEND_DIR" -- \
 
 for _ in $(seq 1 30); do
   if port_open 5000; then
-    echo "Open http://localhost:5000"
+    echo "Database is up. Opening https://electroshack.ca"
     echo "To pause before moving this PC: $INSTALL_ROOT/PAUSE.sh"
+    if command -v xdg-open >/dev/null 2>&1; then
+      xdg-open "https://electroshack.ca" >/dev/null 2>&1 || true
+    fi
     exit 0
   fi
   sleep 1

@@ -132,7 +132,13 @@ STOP_SH="$USB_DIR/stop-linux.sh"
 cp "$START_SH" "$INSTALL_ROOT/START.sh"
 cp "$PAUSE_SH" "$INSTALL_ROOT/PAUSE.sh"
 cp "$STOP_SH" "$INSTALL_ROOT/STOP.sh"
-chmod +x "$INSTALL_ROOT/START.sh" "$INSTALL_ROOT/PAUSE.sh" "$INSTALL_ROOT/STOP.sh"
+cp "$USB_DIR/export-linux.sh" "$INSTALL_ROOT/EXPORT.sh" 2>/dev/null || cp "$HERE/export-linux.sh" "$INSTALL_ROOT/EXPORT.sh"
+chmod +x "$INSTALL_ROOT/START.sh" "$INSTALL_ROOT/PAUSE.sh" "$INSTALL_ROOT/STOP.sh" "$INSTALL_ROOT/EXPORT.sh"
+if [[ -x "$USB_DIR/install-desktop-linux.sh" ]]; then
+  "$USB_DIR/install-desktop-linux.sh" || true
+elif [[ -x "$HERE/install-desktop-linux.sh" ]]; then
+  "$HERE/install-desktop-linux.sh" || true
+fi
 cat > "$INSTALL_ROOT/app-root" <<EOF
 $REPO_ROOT
 EOF
@@ -163,7 +169,8 @@ fi
 
 log "Setup finished. Database lives in $DATA_DIR"
 echo
-echo "Open http://localhost:5000"
+echo "Open https://electroshack.ca"
 echo "Admin login is in usb/README.txt"
-echo "To pause before moving this PC: $INSTALL_ROOT/PAUSE.sh  (or usb/pause-linux.sh)"
+echo "Desktop: Start / Pause / Export Database"
+echo "To pause before moving this PC: $INSTALL_ROOT/PAUSE.sh"
 echo

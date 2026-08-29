@@ -5,6 +5,10 @@ set -euo pipefail
 
 INSTALL_ROOT="${ELECTROSHACK_HOME:-$HOME/Electroshack}"
 LOG_DIR="$INSTALL_ROOT/logs"
+BACKEND_DIR=""
+if [[ -f "$INSTALL_ROOT/app-root" ]]; then
+  BACKEND_DIR="$(cat "$INSTALL_ROOT/app-root")/backend"
+fi
 TMUX_CONF="/exec-daemon/tmux.portal.conf"
 
 tmux_cmd() {
@@ -23,13 +27,11 @@ echo
 tmux_cmd kill-session -t "=electroshack-backend" 2>/dev/null || true
 tmux_cmd kill-session -t "=electroshack-mongo" 2>/dev/null || true
 
-# Catch processes started outside tmux as well.
-pkill -f "$INSTALL_ROOT/data" -u "$(id -un)" 2>/dev/null || true
-pgrep -af "mongod --dbpath $INSTALL_ROOT/data" >/dev/null 2>&1 && pkill -f "mongod --dbpath $INSTALL_ROOT/data" || true
-pgrep -af "node server.js" >/dev/null 2>&1 && {
-  # Only stop this app's node, not every node on the machine.
-  pkill -f "[n]ode server.js" || true
-}
+# Stop leftover mongod/node for this app by process name, not a broad path match.
+pgrep -u "$(id -un)" -x mongod >/dev/null 2>&1 && pkill -u "$(id -un)" -x mongod || true
+if [[ -n "$BACKEND_DIR" ]]; then
+  pgrep -f "node $BACKEND_DIR/server.js" >/dev/null 2>&1 && pkill -f "node $BACKEND_DIR/server.js" || true
+fi
 
 rm -f "$INSTALL_ROOT/backend.pid" "$INSTALL_ROOT/mongod.pid"
 

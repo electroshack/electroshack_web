@@ -166,6 +166,8 @@ Copy-Item (Join-Path $UsbDir "START.bat") (Join-Path $InstallRoot "START.bat") -
 Copy-Item (Join-Path $UsbDir "PAUSE.bat") (Join-Path $InstallRoot "PAUSE.bat") -Force
 Copy-Item (Join-Path $UsbDir "PAUSE.ps1") (Join-Path $InstallRoot "PAUSE.ps1") -Force
 Copy-Item (Join-Path $UsbDir "STOP.bat") (Join-Path $InstallRoot "STOP.bat") -Force
+Copy-Item (Join-Path $UsbDir "EXPORT.bat") (Join-Path $InstallRoot "EXPORT.bat") -Force
+Copy-Item (Join-Path $UsbDir "backup.ps1") (Join-Path $InstallRoot "backup.ps1") -Force
 New-Item -ItemType Directory -Force -Path (Join-Path $BackendDir "scripts") | Out-Null
 Copy-Item (Join-Path $UsbDir "send-at-sms.ps1") (Join-Path $BackendDir "scripts\send-at-sms.ps1") -Force
 $Wsh = New-Object -ComObject WScript.Shell
@@ -189,7 +191,13 @@ $sc.TargetPath = Join-Path $InstallRoot "PAUSE.bat"
 $sc.WorkingDirectory = $InstallRoot
 $sc.Description = "Stop Electroshack so this PC can be moved"
 $sc.Save()
-Write-Log "Installed START.bat, PAUSE.bat, and Desktop / Start Menu shortcuts on this PC"
+$exportLnk = Join-Path $env:PUBLIC "Desktop\Export Database.lnk"
+$sc = $Wsh.CreateShortcut($exportLnk)
+$sc.TargetPath = Join-Path $InstallRoot "EXPORT.bat"
+$sc.WorkingDirectory = $InstallRoot
+$sc.Description = "Zip a backup of the store database"
+$sc.Save()
+Write-Log "Installed START, PAUSE, and Export Database desktop shortcuts"
 
 netsh advfirewall firewall delete rule name="Electroshack TCP 5000" 2>$null | Out-Null
 netsh advfirewall firewall add rule name="Electroshack TCP 5000" dir=in action=allow protocol=TCP localport=5000 | Out-Null
@@ -202,11 +210,11 @@ if (Wait-Port 5000 60) {
 } else {
   Write-Log "WARNING: port 5000 not ready yet. Open C:\Electroshack\logs\backend.log"
 }
-Start-Process "http://localhost:5000"
+Start-Process "https://electroshack.ca"
 
 Write-Log "Setup finished. The app lives on this PC at C:\Electroshack. You can unplug the USB."
 Write-Host ""
-Write-Host "Open http://localhost:5000  (or the Electroshack icon on the Desktop)"
+Write-Host "Open https://electroshack.ca  (Start Electroshack on the Desktop)"
 Write-Host "Admin login is in usb\README.txt on this USB stick."
 Write-Host "To pause before moving this PC to the store: double-click PAUSE.bat (or Pause Electroshack on the Desktop)."
 Write-Host ""
