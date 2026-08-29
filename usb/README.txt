@@ -10,8 +10,8 @@ Copy this whole project onto the USB so SETUP.bat is at the root of the stick.
 
   ./usb/copy-to-usb.sh /Volumes/YOUR-USB-NAME
 
-That copies SETUP.bat, START.bat, BACKUP.bat, RESTORE.bat, ENABLE-INTERNET.bat,
-and SETUP-SMS.bat to the root of the stick (from the usb\ folder).
+That copies SETUP.bat, START.bat, PAUSE.bat, STOP.bat, BACKUP.bat, RESTORE.bat,
+ENABLE-INTERNET.bat, and SETUP-SMS.bat to the root of the stick (from usb\).
 
 WHAT TO DO ON THE STORE PC
 --------------------------
@@ -24,6 +24,16 @@ WHAT TO DO ON THE STORE PC
 
 After that, the app lives on this PC at C:\Electroshack. Unplug the USB.
 It starts when someone signs into Windows. Desktop shortcut: Electroshack.
+
+MOVING THIS PC
+--------------
+Before you unplug and take it to the store:
+
+  Double-click PAUSE.bat
+  (or "Pause Electroshack" on the Desktop)
+
+That stops Node and Mongo and turns off auto-start. Nothing is deleted.
+At the store, double-click START.bat (or the Electroshack icon).
 
 If the app is already installed and you just want to open it:
 

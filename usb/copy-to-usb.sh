@@ -24,6 +24,9 @@ rsync -a --delete \
   --exclude "backups/dump-*" \
   --exclude "/SETUP.bat" \
   --exclude "/START.bat" \
+  --exclude "/PAUSE.bat" \
+  --exclude "/STOP.bat" \
+  --exclude "/PAUSE.ps1" \
   --exclude "/BACKUP.bat" \
   --exclude "/RESTORE.bat" \
   --exclude "/ENABLE-INTERNET.bat" \
@@ -52,6 +55,9 @@ powershell -NoProfile -ExecutionPolicy Bypass -Command "Start-Process powershell
 EOF
 
 cp "$ROOT/usb/START.bat" "$DEST/START.bat"
+cp "$ROOT/usb/PAUSE.bat" "$DEST/PAUSE.bat"
+cp "$ROOT/usb/PAUSE.ps1" "$DEST/PAUSE.ps1"
+cp "$ROOT/usb/STOP.bat" "$DEST/STOP.bat"
 
 cat > "$DEST/BACKUP.bat" <<'EOF'
 @echo off
