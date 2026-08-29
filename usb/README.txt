@@ -10,8 +10,8 @@ Copy this whole project onto the USB so SETUP.bat is at the root of the stick.
 
   ./usb/copy-to-usb.sh /Volumes/YOUR-USB-NAME
 
-That copies SETUP.bat, START.bat, BACKUP.bat, RESTORE.bat, ENABLE-INTERNET.bat,
-and SETUP-SMS.bat to the root of the stick (from the usb\ folder).
+That copies SETUP.bat, START.bat, PAUSE.bat, STOP.bat, BACKUP.bat, RESTORE.bat,
+ENABLE-INTERNET.bat, and SETUP-SMS.bat to the root of the stick (from usb\).
 
 WHAT TO DO ON THE STORE PC
 --------------------------
@@ -20,10 +20,27 @@ WHAT TO DO ON THE STORE PC
 3. Double-click SETUP.bat
 4. Click Yes if Windows asks to run as administrator.
 5. Wait. First run installs Node.js + MongoDB, copies the app, and starts it.
-6. Browser should open http://localhost:5000
+6. Browser should open https://electroshack.ca
+
+After that, the app lives on this PC at C:\Electroshack. Unplug the USB.
+It starts when someone signs into Windows. Desktop shortcuts:
+
+  Start Electroshack
+  Pause Electroshack
+  Export Database
 
 After that, the app lives on this PC at C:\Electroshack. Unplug the USB.
 It starts when someone signs into Windows. Desktop shortcut: Electroshack.
+
+MOVING THIS PC
+--------------
+Before you unplug and take it to the store:
+
+  Double-click PAUSE.bat
+  (or "Pause Electroshack" on the Desktop)
+
+That stops Node and Mongo and turns off auto-start. Nothing is deleted.
+At the store, double-click START.bat (or the Electroshack icon).
 
 If the app is already installed and you just want to open it:
 
@@ -32,7 +49,7 @@ If the app is already installed and you just want to open it:
 
 LOCAL LOGIN (this USB is the key)
 ---------------------------------
-Open:     http://localhost:5000/login
+Open:     https://electroshack.ca/login
 Username: admin
 Password: $9600Electr@
 
@@ -93,6 +110,21 @@ To restore the latest backup onto the PC:
 
 You can also run usb/backup.sh / usb/restore.sh from Terminal or Git Bash.
 
+LINUX (this store-DB machine)
+-----------------------------
+If this PC is Linux instead of Windows, from the USB/project folder:
+
+  ./usb/setup-linux.sh
+
+That installs MongoDB into ~/Electroshack, copies usb/credentials.env into
+backend/.env, builds the storefront, seeds admin, and starts
+http://localhost:5000. No Git clone.
+
+  ./usb/start-linux.sh     start / reopen
+  ./usb/pause-linux.sh     stop Node + Mongo so you can move the PC
+  ./usb/stop-linux.sh      same as pause
+  ./usb/backup.sh          dump the database into backups/
+
 WHERE DATA LIVES
 ----------------
 App:      C:\Electroshack\app
@@ -106,6 +138,6 @@ with SETUP.bat then RESTORE.bat.
 
 NO EXTRA ACCOUNTS REQUIRED
 --------------------------
-Email: set SMTP_PASS in credentials.env (copied to backend\.env) to the
-Microsoft 365 mailbox / app password for admin@electroshack.ca.
+Email: Microsoft 365 mailbox admin@electroshack.ca (SMTP_PASS is already in
+credentials.env). On the live site, Render also sends via Resend HTTPS.
 SMS uses the USB GSM modem after SETUP-SMS.bat. No Twilio.

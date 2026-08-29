@@ -42,12 +42,41 @@ function Install-WingetPackage([string]$Id) {
   Refresh-Path
 }
 
+function Wait-Port([int]$Port, [int]$Seconds = 90) {
+  $deadline = (Get-Date).AddSeconds($Seconds)
+  while ((Get-Date) -lt $deadline) {
+    try {
+      $tcp = Test-NetConnection -ComputerName 127.0.0.1 -Port $Port -WarningAction SilentlyContinue
+      if ($tcp.TcpTestSucceeded) { return $true }
+    } catch {}
+    Start-Sleep -Seconds 2
+  }
+  return $false
+}
+
+function Invoke-NpmRetry([string]$Label, [scriptblock]$Block) {
+  $last = $null
+  foreach ($attempt in 1, 2, 3) {
+    Write-Log "$Label (attempt $attempt)"
+    & $Block
+    if ($LASTEXITCODE -eq 0) { return }
+    $last = $LASTEXITCODE
+    Start-Sleep -Seconds 8
+  }
+  throw "$Label failed after 3 tries (exit $last). This PC needs internet for the first install."
+}
+
 Write-Log "Electroshack local setup started"
 Write-Log "USB folder: $UsbDir"
 Write-Log "Repo root: $RepoRoot"
 
 if (-not (Test-Path (Join-Path $RepoRoot "backend\package.json"))) {
-  throw "Could not find the Electroshack repo next to this usb folder. Copy the whole project onto the USB so SETUP.bat is at the root of the stick."
+  if (Test-Path (Join-Path $UsbDir "..\backend\package.json")) {
+    $RepoRoot = (Resolve-Path (Join-Path $UsbDir "..")).Path
+  }
+}
+if (-not (Test-Path (Join-Path $RepoRoot "backend\package.json"))) {
+  throw "Could not find backend\package.json. The USB must contain the whole Electroshack folder (backend, client, usb). Open D:\ and confirm those folders exist next to SETUP.bat."
 }
 
 if (-not (Test-Command "winget")) {
@@ -80,14 +109,13 @@ Write-Log "Copied USB credentials into backend\.env"
 
 Write-Log "Installing backend packages"
 Push-Location $BackendDir
-npm install --omit=dev
-if ($LASTEXITCODE -ne 0) { throw "backend npm install failed" }
+Invoke-NpmRetry "backend npm install" { npm install --omit=dev }
 Pop-Location
 
 Write-Log "Installing client packages and building storefront"
 Push-Location $ClientDir
-npm install
-if ($LASTEXITCODE -ne 0) { throw "client npm install failed" }
+Invoke-NpmRetry "client npm install" { npm install }
+Write-Log "Building client"
 npm run build
 if ($LASTEXITCODE -ne 0) { throw "client build failed" }
 Pop-Location
@@ -95,17 +123,27 @@ Pop-Location
 Write-Log "Starting MongoDB"
 $mongo = Get-Service | Where-Object { $_.Name -eq "MongoDB" -or $_.DisplayName -like "MongoDB*" } | Select-Object -First 1
 if ($mongo) {
-  if ($mongo.Status -ne "Running") { Start-Service $mongo.Name }
   Set-Service $mongo.Name -StartupType Automatic
+  if ($mongo.Status -ne "Running") { Start-Service $mongo.Name }
   Write-Log ("MongoDB service: {0}" -f $mongo.Name)
 } else {
   Write-Log "WARNING: MongoDB Windows service not found. SETUP will still try to start the app."
 }
+if (-not (Wait-Port 27017 120)) {
+  throw "MongoDB did not open port 27017. Reboot this PC, then run SETUP.bat again."
+}
+Write-Log "MongoDB is listening on 27017"
 
 Write-Log "Creating admin login from USB credentials"
 Push-Location $BackendDir
-node scripts/resetAdminPassword.js
-if ($LASTEXITCODE -ne 0) { throw "Admin password reset failed. Is MongoDB running?" }
+$adminOk = $false
+foreach ($attempt in 1, 2, 3) {
+  node scripts/resetAdminPassword.js
+  if ($LASTEXITCODE -eq 0) { $adminOk = $true; break }
+  Write-Log "Admin reset failed (attempt $attempt), waiting for Mongo..."
+  Start-Sleep -Seconds 5
+}
+if (-not $adminOk) { throw "Admin password reset failed. Is MongoDB running? See C:\Electroshack\install.log" }
 Pop-Location
 
 $startCmdPath = Join-Path $InstallRoot "start-backend.cmd"
@@ -125,6 +163,11 @@ Write-Log "Registered Windows logon task: Electroshack Local Server"
 
 # - PC-local launcher so the USB can be unplugged. START.bat and a Desktop shortcut point here.
 Copy-Item (Join-Path $UsbDir "START.bat") (Join-Path $InstallRoot "START.bat") -Force
+Copy-Item (Join-Path $UsbDir "PAUSE.bat") (Join-Path $InstallRoot "PAUSE.bat") -Force
+Copy-Item (Join-Path $UsbDir "PAUSE.ps1") (Join-Path $InstallRoot "PAUSE.ps1") -Force
+Copy-Item (Join-Path $UsbDir "STOP.bat") (Join-Path $InstallRoot "STOP.bat") -Force
+Copy-Item (Join-Path $UsbDir "EXPORT.bat") (Join-Path $InstallRoot "EXPORT.bat") -Force
+Copy-Item (Join-Path $UsbDir "backup.ps1") (Join-Path $InstallRoot "backup.ps1") -Force
 New-Item -ItemType Directory -Force -Path (Join-Path $BackendDir "scripts") | Out-Null
 Copy-Item (Join-Path $UsbDir "send-at-sms.ps1") (Join-Path $BackendDir "scripts\send-at-sms.ps1") -Force
 $Wsh = New-Object -ComObject WScript.Shell
@@ -142,7 +185,19 @@ foreach ($lnk in $shortcutPaths) {
   $sc.Description = "Electroshack store PC"
   $sc.Save()
 }
-Write-Log "Installed START.bat and Desktop / Start Menu shortcuts on this PC"
+$pauseLnk = Join-Path $env:PUBLIC "Desktop\Pause Electroshack.lnk"
+$sc = $Wsh.CreateShortcut($pauseLnk)
+$sc.TargetPath = Join-Path $InstallRoot "PAUSE.bat"
+$sc.WorkingDirectory = $InstallRoot
+$sc.Description = "Stop Electroshack so this PC can be moved"
+$sc.Save()
+$exportLnk = Join-Path $env:PUBLIC "Desktop\Export Database.lnk"
+$sc = $Wsh.CreateShortcut($exportLnk)
+$sc.TargetPath = Join-Path $InstallRoot "EXPORT.bat"
+$sc.WorkingDirectory = $InstallRoot
+$sc.Description = "Zip a backup of the store database"
+$sc.Save()
+Write-Log "Installed START, PAUSE, and Export Database desktop shortcuts"
 
 netsh advfirewall firewall delete rule name="Electroshack TCP 5000" 2>$null | Out-Null
 netsh advfirewall firewall add rule name="Electroshack TCP 5000" dir=in action=allow protocol=TCP localport=5000 | Out-Null
@@ -150,13 +205,17 @@ Write-Log "Opened Windows Firewall for port 5000 (shop LAN)"
 
 Write-Log "Starting Electroshack"
 Start-Process -FilePath $startCmdPath
-Start-Sleep -Seconds 5
-Start-Process "http://localhost:5000"
+if (Wait-Port 5000 60) {
+  Write-Log "Server is up on port 5000"
+} else {
+  Write-Log "WARNING: port 5000 not ready yet. Open C:\Electroshack\logs\backend.log"
+}
+Start-Process "https://electroshack.ca"
 
 Write-Log "Setup finished. The app lives on this PC at C:\Electroshack. You can unplug the USB."
 Write-Host ""
-Write-Host "Open http://localhost:5000  (or the Electroshack icon on the Desktop)"
+Write-Host "Open https://electroshack.ca  (Start Electroshack on the Desktop)"
 Write-Host "Admin login is in usb\README.txt on this USB stick."
-Write-Host "The site starts when someone signs into Windows. The USB is only for SETUP, backups, and SMS port setup."
+Write-Host "To pause before moving this PC to the store: double-click PAUSE.bat (or Pause Electroshack on the Desktop)."
 Write-Host ""
 Read-Host "Press Enter to close"
